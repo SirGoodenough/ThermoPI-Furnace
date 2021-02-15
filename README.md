@@ -7,7 +7,7 @@ Install the program into opt/ThermoPI or any suitable location.
 
 To start the program looping, you write a short script to call like the example give in gpio4.sh.  This script needs to be executable.
 
-NOT THIS ```/opt/ThermoPI/ThermoPI.py 'HUDU/temperature1' 'HUDU/humidity1' 4 250```
+NOT THIS  Stuff ```/opt/ThermoPI/ThermoPI.py 'HUDU/temperature1' 'HUDU/humidity1' 4 250```
 
 + The first variable is the topic you want for the temperature measurement. 
 + The second variable is the topic you want for the humidity measurement. 
