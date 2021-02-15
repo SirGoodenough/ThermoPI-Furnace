@@ -5,8 +5,8 @@ Use a Raspberry PI connected to one or more temperature sensors to send the resu
 
 Install the program into opt/ThermoPI or any suitable location.
 
-You will need to rename the file '''sample_secrets.py''' to '''secrets.py'''
-Edit the contents of '''secrets.py''' to match your MQTT installation.
+You will need to rename the file '''sample_MYsecrets.py''' to '''MYsecrets.py'''
+Edit the contents of '''MYsecrets.py''' to match your MQTT installation.
 
 
 

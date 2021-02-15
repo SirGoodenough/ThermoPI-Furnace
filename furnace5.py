@@ -7,7 +7,7 @@ import time
 import sys
 import requests
 import json
-import secrets
+import MYsecrets
 from w1thermsensor import W1ThermSensor
 '''
  DHT Sensor Data-logging to MQTT Temperature channel
@@ -201,10 +201,10 @@ def mqttsend():
 # Type of sensor, can be Adafruit_DHT.DHT11, Adafruit_DHT.DHT22, or Adafruit_DHT.AM2302.
 DHT_TYPE = Adafruit_DHT.AM2302
 
-MOSQUITTO_HOST = secrets.HOST
-MOSQUITTO_PORT = secrets.PORT
-MOSQUITTO_USER = secrets.USER
-MOSQUITTO_PWD = secrets.PWD
+MOSQUITTO_HOST = MYsecrets.HOST
+MOSQUITTO_PORT = MYsecrets.PORT
+MOSQUITTO_USER = MYsecrets.USER
+MOSQUITTO_PWD = MYsecrets.PWD
 temp = 0.00
 humidity = 0.00
 # These are the topics.
