@@ -5,17 +5,10 @@ Use a Raspberry PI connected to one or more temperature sensors to send the resu
 
 Install the program into opt/ThermoPI or any suitable location.
 
-To start the program looping, you write a short script to call like the example give in gpio4.sh.  This script needs to be executable.
+You will need to rename the file '''sample_secrets.py''' to '''secrets.py'''
+Edit the contents of '''secrets.py''' to match your MQTT installation.
 
-NOT THIS  Stuff ```/opt/ThermoPI/ThermoPI.py 'HUDU/temperature1' 'HUDU/humidity1' 4 250```
 
-+ The first variable is the topic you want for the temperature measurement. 
-+ The second variable is the topic you want for the humidity measurement. 
-+ The third variable is the GPIO port (pin) that you want to connect the sensor to. 
-+ The forth variable is the time you want between readings.
-
-To run the program at boot in order to get constant readings, 
-    see the Example-rc.local file and do something similar.
 
 The PY program itself is well documented.
 Follow the comments there to change the necessary information.
