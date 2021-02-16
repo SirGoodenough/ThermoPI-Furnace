@@ -42,10 +42,11 @@ The furnRestart.sh is the script to quickly restart the process if needed during
 ## Requirements:
 Program requirements (as written):  (feel free to fork it and convert to Python 3.x...)
 + Python 2.7 
-+ pigpio            For reading the Thermocouples (MAX6675)
-+ paho-mqtt         For MQTT broker connection
-+ W1ThermSensor     For 2 wire temp sensors (DS18B20)
-+ Adafruit_DHT      For temp / humid sensors (AM2302)
++ [pigpio](http://abyz.co.uk/rpi/pigpio/python.html) For reading the Thermocouples (MAX6675)
++ [max6675](https://github.com/tdack/MAX6675) Thermocouple demux code
++ [W1ThermSensor](https://github.com/timofurrer/w1thermsensor)For 2 wire temp sensors (DS18B20)
++ [Adafruit_DHT](https://github.com/adafruit/Adafruit_Python_DHT) For temp / humid sensors (AM2302)
++ [paho-mqtt](https://pypi.org/project/paho-mqtt/) For MQTT broker connection
 
 **If you have any questions, comments or additions be sure to add an issue and bring them up on my Discord Server:** 
 
