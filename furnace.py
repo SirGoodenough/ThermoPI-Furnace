@@ -88,11 +88,12 @@ def W1():
 
     # Get the temp
     tempC = sensor.get_temperature()
-    # Test the result
+    # Test the result.  Make sure it is reasonable and not a glitch.
     if tempC is None or tempC > 150.0 or tempC < 1.0:
         return
     # Conversion to F & round to .2
     tF = round((9.0/5.0 * tempC + 32.0), 2)
+      # Use while Troubleshooting...
     # print("{:.2f}".format(tF))
     # Done
     temp = tF
@@ -123,6 +124,7 @@ def thermocouple():
                 return
             # Conversion to F & round to .2
             tF = round((9.0/5.0 * tempC + 32.0), 2)
+              # Use while Troubleshooting...
             # print("{:.2f}".format(tF))
         else:
             print('bad reading {:b}'.format(word))
@@ -154,6 +156,8 @@ def temphumid():
 
     temp = round((9.0/5.0 * tempC + 32.0), 2)  # Conversion to F & round to .2
     humidity = round(humidity, 2)            # Round to .2
+        # Use while Troubleshooting...
+    # print('Temp: {0:0.2f}F Humd: {1:0.2f}%'.format(temp, humidity))
 
 
 # Subroutine to mqtt
