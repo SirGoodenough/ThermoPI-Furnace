@@ -44,7 +44,7 @@ Program requirements (as written):  (feel free to fork it and convert to Python 
 + Python 2.7 
 + [pigpio](http://abyz.co.uk/rpi/pigpio/python.html) For reading the Thermocouples (MAX6675)
 + [max6675](https://github.com/tdack/MAX6675) Thermocouple demux code
-+ [W1ThermSensor](https://github.com/timofurrer/w1thermsensor)For 2 wire temp sensors (DS18B20)
++ [W1ThermSensor](https://github.com/timofurrer/w1thermsensor) For 2 wire temp sensors (DS18B20)
 + [Adafruit_DHT](https://github.com/adafruit/Adafruit_Python_DHT) For temp / humid sensors (AM2302)
 + [paho-mqtt](https://pypi.org/project/paho-mqtt/) For MQTT broker connection
 
