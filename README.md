@@ -1,4 +1,4 @@
-# ThermoPI
+# ThermoPI-Furnace
 Use a Raspberry PI connected to one or more temperature sensors to send the results to a MQTT server.
 ## USAGE:
 Install the program into opt/ThermoPI-Furnace or any suitable location. (Some people like /usr/local/bin instead of /opt)
