@@ -83,7 +83,7 @@ def W1():
     tempC = 0.0
     temp = 0.0
 
-     # sensor = W1ThermSensor()
+    # sensor = W1ThermSensor()
     sensor = W1ThermSensor(W1ThermSensor.THERM_SENSOR_DS18B20, list[count])
 
     # Get the temp
@@ -93,7 +93,7 @@ def W1():
         return
     # Conversion to F & round to .2
     tF = round((9.0/5.0 * tempC + 32.0), 2)
-      # Use while Troubleshooting...
+    # Use while Troubleshooting...
     # print("{:.2f}".format(tF))
     # Done
     temp = tF
@@ -124,7 +124,7 @@ def thermocouple():
                 return
             # Conversion to F & round to .2
             tF = round((9.0/5.0 * tempC + 32.0), 2)
-              # Use while Troubleshooting...
+            # Use while Troubleshooting...
             # print("{:.2f}".format(tF))
         else:
             print('bad reading {:b}'.format(word))
@@ -233,7 +233,7 @@ print('Logging sensor measurements to {0} every {1} seconds.'
       .format('MQTT', FREQUENCY_SECONDS))
 print('Press Ctrl-C to quit.')
 print('Connecting to MQTT on {0}'.format(MOSQUITTO_HOST))
-mqttempC = mqtt.Client('python_pub', 'False', 'MQTTv311')
+mqttempC = mqtt.Client('python_pub', 'False', 'MQTTv311',)
 mqttempC.username_pw_set(MOSQUITTO_USER, MOSQUITTO_PWD)
 mqttempC.will_set('furnacepi/lwt', 'Offline', 0, True)
 
