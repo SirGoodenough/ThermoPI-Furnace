@@ -2,15 +2,14 @@
 
 import pigpio  # http://abyz.co.uk/rpi/pigpio/python.html
 import Adafruit_DHT
+from w1thermsensor import W1ThermSensor
 import paho.mqtt.client as mqtt
 import sys
 import time
 import yaml
 import json
 import uuid
-import MYsecrets
-import numpy as np
-from w1thermsensor import W1ThermSensor
+
 '''
  DHT Sensor Data-logging to MQTT Temperature channel
 
@@ -140,7 +139,7 @@ def tempHumid():
 
     temp = 0.0
     tempC = 0.0
- 
+
     time.sleep(LOOP / 10)  # Settling time
     humidity, tempC = Adafruit_DHT.read_retry(
         DHT_TYPE, list[count], retries=8, delay_seconds=.85)
@@ -198,7 +197,6 @@ def mqttSend():
 
         if result1 == 1:
             raise ValueError('Result message from MQTT was not 0')
-
 
     except Exception as e:
         # Error appending data, most likely because credentials are stale.
@@ -323,6 +321,7 @@ payloadH_TH1config = {
     "unit_of_meas": "%",
     "dev_cla":"humidity",
     "frc_upd": True,
+    'exp_aft': 400,
     "val_tpl": "{{ value_json.humidity }}"
 }
 
@@ -347,6 +346,7 @@ payloadT_TH1config = {
     "unit_of_meas":"°F",
     "dev_cla":"temperature",
     "frc_upd": True,
+    'exp_aft': 400,
     "val_tpl": "{{ value_json.temperature }}"
 }
 
@@ -371,6 +371,7 @@ payloadH_TH2config = {
     "unit_of_meas": "%",
     "dev_cla":"humidity",
     "frc_upd": True,
+    'exp_aft': 400,
     "val_tpl": "{{ value_json.humidity }}"
 }
 
@@ -395,6 +396,7 @@ payloadT_TH2config = {
     "unit_of_meas":"°F",
     "dev_cla":"temperature",
     "frc_upd": True,
+    'exp_aft': 400,
     "val_tpl": "{{ value_json.temperature }}"
 }
 
@@ -419,6 +421,7 @@ payload_W13config = {
     "unit_of_meas":"°F",
     "dev_cla":"temperature",
     "frc_upd": True,
+    'exp_aft': 400,
     "val_tpl": "{{ value_json.temperature }}"
 }
 
@@ -443,6 +446,7 @@ payload_W14config = {
     "unit_of_meas":"°F",
     "dev_cla":"temperature",
     "frc_upd": True,
+    'exp_aft': 400,
     "val_tpl": "{{ value_json.temperature }}"
 }
 
@@ -467,6 +471,7 @@ payload_TC5config = {
     "unit_of_meas":"°F",
     "dev_cla":"temperature",
     "frc_upd": True,
+    'exp_aft': 400,
     "val_tpl": "{{ value_json.temperature }}"
 }
 
@@ -491,6 +496,7 @@ payload_TC6config = {
     "unit_of_meas":"°F",
     "dev_cla":"temperature",
     "frc_upd": True,
+    'exp_aft': 400,
     "val_tpl": "{{ value_json.temperature }}"
 }
 
