@@ -187,7 +187,7 @@ def mqttSend():
         payloadOut = {
             "temperature": temp,
             "humidity": humidity}
-        OutState = state_topic(count)
+        OutState = state_topic[count]
         print('Updating {0} {1}'.format(OutState,json.dumps(payloadOut) ) )
         (result1,mid) = mqttc.publish(OutState, json.dumps(payloadOut), 1, True)
 
