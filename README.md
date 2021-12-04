@@ -11,6 +11,10 @@ Here is a good reference on setting up a program to run from systemd. Use it to 
 
 [How-To Geek on 'Startup With Systemd'](https://www.howtogeek.com/687970/how-to-run-a-linux-program-at-startup-with-systemd/)
 
+To run the program at boot in order to get constant readings, there is the ThermoPIFurnace.service to run this as a service with load-service.sh there to set it up as a service.
+
+The load-service.sh script will stop and scratch reload the service from the local repository (Once you get all the permissions happy).
+
 The furnRestart.sh is the script to quickly restart the process if needed during troubleshooting.  I found it helpful.
 
 ## Requirements:
