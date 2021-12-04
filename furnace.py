@@ -91,10 +91,10 @@ def W1():
     # Test the result.  Make sure it is reasonable and not a glitch.
     if tempC is None or tempC > 150.0 or tempC < 1.0:
         return
-    # Conversion to F & round to .2
-    tF = round((9.0/5.0 * tempC + 32.0), 2)
+    # Conversion to F & round to .1
+    tF = round((9.0/5.0 * tempC + 32.0), 1)
     # Use while Troubleshooting...
-    # print("{:.2f}".format(tF))
+    # print("{:.1f}".format(tF))
     # Done
     temp = tF
 
@@ -121,8 +121,8 @@ def thermocouple():
             # Test the result
             if tempC is None or tempC > 1500.0 or tempC < 1.0:
                 return
-            # Conversion to F & round to .2
-            tF = round((9.0/5.0 * tempC + 32.0), 2)
+            # Conversion to F & round to .1
+            tF = round((9.0/5.0 * tempC + 32.0), 1)
             # Use while Troubleshooting...
             # print("{:.2f}".format(tF))
         else:
@@ -152,10 +152,10 @@ def tempHumid():
         print('bad reading {0} {1}'.format(tempC, humidity))
         return
 
-    temp = round((9.0/5.0 * tempC + 32.0), 2)  # Conversion to F & round to .2
-    humidity = round(humidity, 2)            # Round to .2
+    temp = round((9.0/5.0 * tempC + 32.0), 1)  # Conversion to F & round to .1
+    humidity = round(humidity, 1)            # Round to .1
         # Use while Troubleshooting...
-    # print('Temp: {0:0.2f}F Humd: {1:0.2f}%'.format(temp, humidity))
+    # print('Temp: {0:0.1f}F Humd: {1:0.1f}%'.format(temp, humidity))
 
 def mqttConnect():
     print('Connecting to MQTT on {0} {1}'.format(HOST,PORT))
