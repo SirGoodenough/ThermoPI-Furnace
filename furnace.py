@@ -224,7 +224,7 @@ if not pi.connected:
     exit(0)
 
 #  Get the parameter file
-with open("/opt/ThermoPI/MYsecrets.yaml", "r") as ymlfile:
+with open("/opt/ThermoPI-Furnace/MYsecrets.yaml", "r") as ymlfile:
     MYs = yaml.safe_load(ymlfile)
 
 # Type of sensor, can be Adafruit_DHT.DHT11, Adafruit_DHT.DHT22, or Adafruit_DHT.AM2302

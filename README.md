@@ -1,47 +1,22 @@
 # ThermoPI-Furnace
 Use a Raspberry PI connected to one or more temperature sensors to send the results to a MQTT server.
 ## USAGE:
-Install the program into opt/ThermoPI-Furnace or any suitable location. (Some people like /usr/local/bin instead of /opt)
+Install the program into opt/ThermoPI-Furnace or any suitable location. (Some people like /usr/local/bin instead of /opt)  Make sure the username that is going to be running this script has access to the files and is able to get at python and anything else needed and used here-in.
 
-You will need to rename the file ***MYsecretsSample.py*** to ***MYsecrets.py***.
-Edit the contents of the new ***MYsecrets.py*** to match your MQTT installation.
+You will need to rename the file ***MYsecretsSample.yaml*** to ***MYsecrets.yaml***.
+Edit the contents of the new ***MYsecrets.yaml*** to match your MQTT & Home Assistant installation and requirements.  You will also need to supply the full path to the secrets file in the **Get the parameter file** section of this python code around line 225.
 
-You will need to edit the list of sensors to match your set-up.  
-This depends on which pins, which spi ports, and the s/n of the 2 wire sensors you have installed.  
-> This line will need to be edited to match your situation: 
- ``` 
-      list = [999, 4, 17, "60d70d1864ff", "0ad50d1864ff", 0, 1, 999, 999]
- ```
-
-The list here is my setup as it is currently running.  The 999 numbers are place holders, they sit as the first and the last 2 items in the list.  In my case I have a sensor on GPIO4, GPIO17, then 2 2-wire sensors with the s/n listed, then the 2 thermocouples are set up in the spi 0 and 1 slot as stated in the documentation in the furnace.py file .
-If you have more or less sensors, you will need to adjust the loop and the list so that it will pick up the correct variable on the correct loop thru the program.
-
-The furnace.py program itself is well documented.
-Follow the comments there to change the necessary information.
 ## AUTO-Start:
 Here is a good reference on setting up a program to run from systemd. Use it to get familiar with the process.   
 
 [How-To Geek on 'Startup With Systemd'](https://www.howtogeek.com/687970/how-to-run-a-linux-program-at-startup-with-systemd/)
 
-> Here is what my '/lib/systemd/system/thermoPIFurnace.service' file looks like: 
-```
-[Unit]
- Description=Grab Furnace Temperatures
- After=multi-user.target
-
- [Service]
- Type=idle
- ExecStart=/usr/bin/python opt/ThermoPI-Furnace/furnace.py
- Restart=on-failure
-
- [Install]
- WantedBy=multi-user.target
-```
-
 The furnRestart.sh is the script to quickly restart the process if needed during troubleshooting.  I found it helpful.
+
 ## Requirements:
-Program requirements (as written):  (feel free to fork it and convert to Python 3.x...)
-+ Python 2.7 
+Program requirements (as written):  (Feel free to fork it & update the obsolete DHT Libraries to CircuitPython DHT Libraries and dropping me a merge request...)
++ Python 3.6 or better
++ [PyYAML](https://pypi.org/project/PyYAML/) For reading the YAML parameter file
 + [pigpio](http://abyz.co.uk/rpi/pigpio/python.html) For reading the Thermocouples (MAX6675)
 + [max6675](https://github.com/tdack/MAX6675) Thermocouple demux code
 + [W1ThermSensor](https://github.com/timofurrer/w1thermsensor) For 2 wire temp sensors (DS18B20)
