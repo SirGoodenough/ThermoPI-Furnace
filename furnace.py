@@ -261,7 +261,7 @@ T_TH1_ID = DEVICE_ID + '_' + MYs["TEMP_HUMID"]["T_TH1_ID"]
 CONFIGT_TH1 = TOPIC + T_TH1_ID + '/config'
 
 PIN_TH2 = MYs["TEMP_HUMID"]["PIN_TH2"]
-NAMEH_TH2 = MYs["TEMP_HUMID"]["NAMEH-TH2"]
+NAMEH_TH2 = MYs["TEMP_HUMID"]["NAMEH_TH2"]
 H_TH2_ID =  DEVICE_ID + '_' + MYs["TEMP_HUMID"]["H_TH2_ID"]
 CONFIGH_TH2 = TOPIC + H_TH2_ID + '/config'
 TH2_STATE = TOPIC + H_TH2_ID + '/state'
@@ -337,11 +337,11 @@ payloadT_TH1config = {
         D_ID,
         DEVICE_ID
         ],
-        "name": "ThermoPI",
+        "name": "ThermoPI Furnace",
         'sa': AREA,
         "mf": "SirGoodenough",
-        "mdl": "HomeAssistant Discovery for ThermoPI",
-        "sw": "https://github.com/SirGoodenough/ThermoPI"
+        "mdl": "HomeAssistant Discovery for ThermoPI Furnace",
+        "sw": "https://github.com/SirGoodenough/ThermoPI-Furnace"
     },
     "unit_of_meas":"°F",
     "dev_cla":"temperature",
@@ -387,11 +387,11 @@ payloadT_TH2config = {
         D_ID,
         DEVICE_ID
         ],
-        "name": "ThermoPI",
+        "name": "ThermoPI Furnace",
         'sa': AREA,
         "mf": "SirGoodenough",
-        "mdl": "HomeAssistant Discovery for ThermoPI",
-        "sw": "https://github.com/SirGoodenough/ThermoPI"
+        "mdl": "HomeAssistant Discovery for ThermoPI Furnace",
+        "sw": "https://github.com/SirGoodenough/ThermoPI-Furnace"
     },
     "unit_of_meas":"°F",
     "dev_cla":"temperature",
@@ -412,11 +412,11 @@ payload_W13config = {
         D_ID,
         DEVICE_ID
         ],
-        "name": "ThermoPI",
+        "name": "ThermoPI Furnace",
         'sa': AREA,
         "mf": "SirGoodenough",
-        "mdl": "HomeAssistant Discovery for ThermoPI",
-        "sw": "https://github.com/SirGoodenough/ThermoPI"
+        "mdl": "HomeAssistant Discovery for ThermoPI Furnace",
+        "sw": "https://github.com/SirGoodenough/ThermoPI-Furnace"
     },
     "unit_of_meas":"°F",
     "dev_cla":"temperature",
@@ -437,11 +437,11 @@ payload_W14config = {
         D_ID,
         DEVICE_ID
         ],
-        "name": "ThermoPI",
+        "name": "ThermoPI Furnace",
         'sa': AREA,
         "mf": "SirGoodenough",
-        "mdl": "HomeAssistant Discovery for ThermoPI",
-        "sw": "https://github.com/SirGoodenough/ThermoPI"
+        "mdl": "HomeAssistant Discovery for ThermoPI Furnace",
+        "sw": "https://github.com/SirGoodenough/ThermoPI-Furnace"
     },
     "unit_of_meas":"°F",
     "dev_cla":"temperature",
@@ -462,11 +462,11 @@ payload_TC5config = {
         D_ID,
         DEVICE_ID
         ],
-        "name": "ThermoPI",
+        "name": "ThermoPI Furnace",
         'sa': AREA,
         "mf": "SirGoodenough",
-        "mdl": "HomeAssistant Discovery for ThermoPI",
-        "sw": "https://github.com/SirGoodenough/ThermoPI"
+        "mdl": "HomeAssistant Discovery for ThermoPI Furnace",
+        "sw": "https://github.com/SirGoodenough/ThermoPI-Furnace"
     },
     "unit_of_meas":"°F",
     "dev_cla":"temperature",
@@ -487,11 +487,11 @@ payload_TC6config = {
         D_ID,
         DEVICE_ID
         ],
-        "name": "ThermoPI",
+        "name": "ThermoPI Furnace",
         'sa': AREA,
         "mf": "SirGoodenough",
-        "mdl": "HomeAssistant Discovery for ThermoPI",
-        "sw": "https://github.com/SirGoodenough/ThermoPI"
+        "mdl": "HomeAssistant Discovery for ThermoPI Furnace",
+        "sw": "https://github.com/SirGoodenough/ThermoPI-Furnace"
     },
     "unit_of_meas":"°F",
     "dev_cla":"temperature",
