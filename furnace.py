@@ -501,10 +501,10 @@ payload_TC6config = {
 }
 
     #Log Message to start
-print('Logging sensor measurements every {0} seconds.'.format(LOOP))
+print('Logging {0} sensor measurements every {1} seconds.'.format(D_ID, LOOP))
 print('Press Ctrl-C to quit.')
 mqttc = mqtt.Client('python_pub', 'False', 'MQTTv311', 60)
-mqttc.disable_logger()
+mqttc.disable_logger()  # Saves wear on SD card Memory.  Remove as needed for troubleshooting
 mqttc.username_pw_set(USER, PWD) # deactivate if not needed
 mqttConnect()
 
@@ -515,9 +515,9 @@ try:
             count = 0
         count += 1
         print('Updating loop %s.' % count)
-
         temp = 0.0
         humidity = 0.0
+
         if count > 4:
             thermocouple()
         elif count > 2:

@@ -1,0 +1,15 @@
+[Unit]
+Description=ThermoPI-Furnace Status Reader
+After=multi-user.target network.target
+
+[Service]
+User=pi
+Type=simple
+ExecStart=/usr/bin/python3 /opt/ThermoPI-Furnace/ThermoPI.py
+KillSignal=SIGINT
+Restart=always
+RestartSec=10
+SyslogIdentifier=ThermoPI-Furnace
+
+[Install]
+WantedBy=multi-user.target
