@@ -1,13 +1,15 @@
-#!/usr/bin/python
+#!/usr/bin/python3
+
 import pigpio  # http://abyz.co.uk/rpi/pigpio/python.html
 import Adafruit_DHT
 import paho.mqtt.client as mqtt
-import datetime
-import time
 import sys
-import requests
+import time
+import yaml
 import json
+import uuid
 import MYsecrets
+import numpy as np
 from w1thermsensor import W1ThermSensor
 '''
  DHT Sensor Data-logging to MQTT Temperature channel
@@ -74,7 +76,6 @@ often the sensor will always return the last read value.
 
 # Subroutine look up 1 Wire temp(s)
 def W1():
-
     global temp
     global sensor
     global list
@@ -101,7 +102,6 @@ def W1():
 
 # Subroutine look up thermcouple temps
 def thermocouple():
-
     global temp
     global pi
     global list
@@ -134,15 +134,14 @@ def thermocouple():
 
 
 # Subroutine to look up temp/humid sensors
-def temphumid():
-
+def tempHumid():
     global temp
     global humidity
 
     temp = 0.0
     tempC = 0.0
  
-    time.sleep(FREQUENCY_SECONDS / 10)  # Settling time
+    time.sleep(LOOP / 10)  # Settling time
     humidity, tempC = Adafruit_DHT.read_retry(
         DHT_TYPE, list[count], retries=8, delay_seconds=.85)
 
@@ -159,89 +158,351 @@ def temphumid():
         # Use while Troubleshooting...
     # print('Temp: {0:0.2f}F Humd: {1:0.2f}%'.format(temp, humidity))
 
+def mqttConnect():
+    print('Connecting to MQTT on {0} {1}'.format(HOST,PORT))
+    mqttc.connect(HOST, PORT, 60)
+    mqttc.loop_start()
+    mqttc.publish(LWT, "Online", 1, True)
+    mqttc.publish(CONFIGH_TH1, json.dumps(payloadH_TH1config), 1, True)
+    mqttc.publish(CONFIGT_TH1, json.dumps(payloadT_TH1config), 1, True)
+    mqttc.publish(CONFIGH_TH2, json.dumps(payloadH_TH2config), 1, True)
+    mqttc.publish(CONFIGT_TH2, json.dumps(payloadT_TH2config), 1, True)
+    mqttc.publish(CONFIG_W13, json.dumps(payload_W13config), 1, True)
+    mqttc.publish(CONFIG_W14, json.dumps(payload_W14config), 1, True)
+    mqttc.publish(CONFIG_TC5, json.dumps(payload_TC5config), 1, True)
+    mqttc.publish(CONFIG_TC6, json.dumps(payload_TC6config), 1, True)
 
-# Subroutine to mqtt
-def mqttsend():
-
+# Subroutine to send results to MQTT
+def mqttSend():
     global temp
     global humidity
-    global ftemp
-    global fhumid
-    global mqttempC
+    global mqttc
     global count
+    global state_topic
 
     if temp == 0.0:
         return
 
     try:
-        time.sleep(1)
-        (result1, mid) = mqttempC.publish(
-            ftemp, temp, qos=0, retain=True)
-        result2 = -1
-        if count < 3:
-            time.sleep(3)
-            (result2, mid) = mqttempC.publish(
-                fhumid, humidity, qos=0, retain=True)
+
+        payloadOut = {
+            "temperature": temp,
+            "humidity": humidity}
+        OutState = state_topic(count)
+        print('Updating {0} {1}'.format(OutState,json.dumps(payloadOut) ) )
+        (result1,mid) = mqttc.publish(OutState, json.dumps(payloadOut), 1, True)
+
         currentdate = time.strftime('%Y-%m-%d %H:%M:%S')
         print('Date Time:   {0}'.format(currentdate))
-        print('Temp: {0:0.2f}F Humd: {1:0.2f}%'.format(temp, humidity))
-        if result1 == 1 or result2 == 1:
-            print('MQTT Updated result {0} and {1}'.format(result1, result2))
-            raise ValueError('MQTT Fail, ', mid)
+        print('MQTT Update result {0}'.format(result1))
+
+        if result1 == 1:
+            raise ValueError('Result message from MQTT was not 0')
+
 
     except Exception as e:
         # Error appending data, most likely because credentials are stale.
-        # Null out the worksheet and login again.
-        mqttempC.publish('furnacepi/lwt', 'Offline', 0, True)
-        mqttempC.disconnect()
-        print('Append error, logging in again: ' + str(e))
-        global MOSQUITTO_HOST
-        global MOSQUITTO_PORT
-        mqttempC.connect(MOSQUITTO_HOST, MOSQUITTO_PORT)
-        mqttempC.publish('furnacepi/lwt', 'Online', 0, True)
+        #  disconnect and re-connect...
+        print('MQTT error, trying re-connect: ' + str(e))
+        mqttc.publish(LWT, 'Offline', 0, True)
+        time.sleep(2)
+        mqttc.loop_stop()
+        mqttc.disconnect()
+        time.sleep(1)
+        mqttConnect()
         pass
-
 
 # Type of sensor, can be Adafruit_DHT.DHT11, Adafruit_DHT.DHT22, or Adafruit_DHT.AM2302.
 DHT_TYPE = Adafruit_DHT.AM2302
 
-MOSQUITTO_HOST = MYsecrets.HOST
-MOSQUITTO_PORT = MYsecrets.PORT
-MOSQUITTO_USER = MYsecrets.USER
-MOSQUITTO_PWD = MYsecrets.PWD
 temp = 0.00
 humidity = 0.00
-# These are the topics.
-ftemp = ''
-fhumid = ''
-# Set Template strings
-templ_t_string = 'furnacepi/temperature'
-templ_h_string = 'furnacepi/humidity'
 # set loop counter
 count = 0
-# These are the GPIO's / SP ports used for the temp/humid sensors.
-list = [999, 4, 17, "60d70d1864ff", "0ad50d1864ff", 0, 1, 999, 999]
-# How long to wait (in seconds) between measurements.
-FREQUENCY_SECONDS = 10
 # Get the library for the thermocouples
 pi = pigpio.pi()
 # Check the library connection
 if not pi.connected:
     exit(0)
 
-print('Logging sensor measurements to {0} every {1} seconds.'
-      .format('MQTT', FREQUENCY_SECONDS))
+#  Get the parameter file
+with open("/opt/ThermoPI/MYsecrets.yaml", "r") as ymlfile:
+    MYs = yaml.safe_load(ymlfile)
+
+# Type of sensor, can be Adafruit_DHT.DHT11, Adafruit_DHT.DHT22, or Adafruit_DHT.AM2302
+DHT_TYPE = Adafruit_DHT.AM2302
+# Example of sensor connected to Raspberry Pi pin 23
+#DHT_PIN = 23
+# Example of sensor connected to Beaglebone Black pin P8_11
+#DHT_PIN  = 'P8_11'
+
+LOOP = MYs["MAIN"]["LOOP"]
+HOST = MYs["MAIN"]["HOST"]
+PORT = MYs["MAIN"]["PORT"]
+USER = MYs["MAIN"]["USER"]
+PWD = MYs["MAIN"]["PWD"]
+AREA = MYs["MAIN"]["AREA"]
+
+# Pulling the unique MAC SN section address using uuid and getnode() function 
+DEVICE_ID = (hex(uuid.getnode())[-6:]).upper()
+
+TOPIC = "homeassistant/sensor/"
+
+NAMED = MYs["MAIN"]["DEVICE_NAME"]
+D_ID = DEVICE_ID + '_' + NAMED
+LWT = TOPIC + D_ID + '/lwt'
+
+PIN_TH1 = MYs["TEMP_HUMID"]["PIN_TH1"]
+NAMEH_TH1 = MYs["TEMP_HUMID"]["NAMEH_TH1"]
+H_TH1_ID =  DEVICE_ID + '_' + MYs["TEMP_HUMID"]["H_TH1_ID"]
+CONFIGH_TH1 = TOPIC + H_TH1_ID + '/config'
+TH1_STATE = TOPIC + H_TH1_ID + '/state'
+
+NAMET_TH1 = MYs["TEMP_HUMID"]["NAMET_TH1"]
+T_TH1_ID = DEVICE_ID + '_' + MYs["TEMP_HUMID"]["T_TH1_ID"]
+CONFIGT_TH1 = TOPIC + T_TH1_ID + '/config'
+
+PIN_TH2 = MYs["TEMP_HUMID"]["PIN_TH2"]
+NAMEH_TH2 = MYs["TEMP_HUMID"]["NAMEH-TH2"]
+H_TH2_ID =  DEVICE_ID + '_' + MYs["TEMP_HUMID"]["H_TH2_ID"]
+CONFIGH_TH2 = TOPIC + H_TH2_ID + '/config'
+TH2_STATE = TOPIC + H_TH2_ID + '/state'
+
+NAMET_TH2 = MYs["TEMP_HUMID"]["NAMET_TH2_ID"]
+T_TH2_ID = DEVICE_ID + '_' + MYs["TEMP_HUMID"]["T_TH2_ID"]
+CONFIGT_TH2 = TOPIC + T_TH2_ID + '/config'
+
+ADDR_W13 = MYs["W1"]["ADDR_W13"]
+NAME_W13 = MYs["W1"]["NAME_W13"]
+W13_ID =  DEVICE_ID + '_' + MYs["W1"]["W13_ID"]
+CONFIG_W13 = TOPIC + W13_ID + '/config'
+W13_STATE = TOPIC + W13_ID + '/state'
+
+ADDR_W14 = MYs["W1"]["ADDR_W14"]
+NAME_W14 = MYs["W1"]["NAME_W14"]
+W14_ID =  DEVICE_ID + '_' + MYs["W1"]["W14_ID"]
+CONFIG_W14 = TOPIC + W14_ID + '/config'
+W14_STATE = TOPIC + W14_ID + '/state'
+
+SEN_TC5 = MYs["THERMOCOUPLE"]["SEN_TC5"]
+NAME_TC5 = MYs["THERMOCOUPLE"]["NAME_TC5"]
+TC5_ID =  DEVICE_ID + '_' + MYs["THERMOCOUPLE"]["TC5_ID"]
+CONFIG_TC5 = TOPIC + TC5_ID + '/config'
+TC5_STATE = TOPIC + TC5_ID + '/state'
+
+SEN_TC6 = MYs["THERMOCOUPLE"]["SEN_TC6"]
+NAME_TC6 = MYs["THERMOCOUPLE"]["NAME_TC6"]
+TC6_ID =  DEVICE_ID + '_' + MYs["THERMOCOUPLE"]["TC6_ID"]
+CONFIG_TC6 = TOPIC + TC6_ID + '/config'
+TC6_STATE = TOPIC + TC6_ID + '/state'
+
+# These are the GPIO's / SP ports / s/ns used for the temp/humid sensors.
+list = [999, PIN_TH1, PIN_TH2, ADDR_W13, ADDR_W14, SEN_TC5, SEN_TC6, 999, 999 ]
+
+# These are the STATE Topics
+state_topic = ["", TH1_STATE, TH2_STATE, W13_STATE, W14_STATE, TC5_STATE, TC6_STATE, "", "" ]
+
+payloadH_TH1config = {
+    "name": NAMEH_TH1,
+    "stat_t": TH1_STATE,
+    "avty_t": LWT,
+    "pl_avail": "Online",
+    "pl_not_avail": "Offline",
+    "uniq_id": H_TH1_ID,
+    "dev": {
+        "ids": [
+        D_ID,
+        DEVICE_ID
+        ],
+        "name": "ThermoPI Furnace",
+        'sa': AREA,
+        "mf": "SirGoodenough",
+        "mdl": "HomeAssistant Discovery for ThermoPI Furnace",
+        "sw": "https://github.com/SirGoodenough/ThermoPI-Furnace"
+    },
+    "unit_of_meas": "%",
+    "dev_cla":"humidity",
+    "frc_upd": True,
+    "val_tpl": "{{ value_json.humidity }}"
+}
+
+payloadT_TH1config = {
+    "name": NAMET_TH1,
+    "stat_t": TH1_STATE,
+    "avty_t": LWT,
+    "pl_avail": "Online",
+    "pl_not_avail": "Offline",
+    "uniq_id": T_TH1_ID,
+    "dev": {
+        "ids": [
+        D_ID,
+        DEVICE_ID
+        ],
+        "name": "ThermoPI",
+        'sa': AREA,
+        "mf": "SirGoodenough",
+        "mdl": "HomeAssistant Discovery for ThermoPI",
+        "sw": "https://github.com/SirGoodenough/ThermoPI"
+    },
+    "unit_of_meas":"°F",
+    "dev_cla":"temperature",
+    "frc_upd": True,
+    "val_tpl": "{{ value_json.temperature }}"
+}
+
+payloadH_TH2config = {
+    "name": NAMEH_TH2,
+    "stat_t": TH2_STATE,
+    "avty_t": LWT,
+    "pl_avail": "Online",
+    "pl_not_avail": "Offline",
+    "uniq_id": H_TH2_ID,
+    "dev": {
+        "ids": [
+        D_ID,
+        DEVICE_ID
+        ],
+        "name": "ThermoPI Furnace",
+        'sa': AREA,
+        "mf": "SirGoodenough",
+        "mdl": "HomeAssistant Discovery for ThermoPI Furnace",
+        "sw": "https://github.com/SirGoodenough/ThermoPI-Furnace"
+    },
+    "unit_of_meas": "%",
+    "dev_cla":"humidity",
+    "frc_upd": True,
+    "val_tpl": "{{ value_json.humidity }}"
+}
+
+payloadT_TH2config = {
+    "name": NAMET_TH2,
+    "stat_t": TH2_STATE,
+    "avty_t": LWT,
+    "pl_avail": "Online",
+    "pl_not_avail": "Offline",
+    "uniq_id": T_TH2_ID,
+    "dev": {
+        "ids": [
+        D_ID,
+        DEVICE_ID
+        ],
+        "name": "ThermoPI",
+        'sa': AREA,
+        "mf": "SirGoodenough",
+        "mdl": "HomeAssistant Discovery for ThermoPI",
+        "sw": "https://github.com/SirGoodenough/ThermoPI"
+    },
+    "unit_of_meas":"°F",
+    "dev_cla":"temperature",
+    "frc_upd": True,
+    "val_tpl": "{{ value_json.temperature }}"
+}
+
+payload_W13config = {
+    "name": NAME_W13,
+    "stat_t": W13_STATE,
+    "avty_t": LWT,
+    "pl_avail": "Online",
+    "pl_not_avail": "Offline",
+    "uniq_id": W13_ID,
+    "dev": {
+        "ids": [
+        D_ID,
+        DEVICE_ID
+        ],
+        "name": "ThermoPI",
+        'sa': AREA,
+        "mf": "SirGoodenough",
+        "mdl": "HomeAssistant Discovery for ThermoPI",
+        "sw": "https://github.com/SirGoodenough/ThermoPI"
+    },
+    "unit_of_meas":"°F",
+    "dev_cla":"temperature",
+    "frc_upd": True,
+    "val_tpl": "{{ value_json.temperature }}"
+}
+
+payload_W14config = {
+    "name": NAME_W14,
+    "stat_t": W14_STATE,
+    "avty_t": LWT,
+    "pl_avail": "Online",
+    "pl_not_avail": "Offline",
+    "uniq_id": W14_ID,
+    "dev": {
+        "ids": [
+        D_ID,
+        DEVICE_ID
+        ],
+        "name": "ThermoPI",
+        'sa': AREA,
+        "mf": "SirGoodenough",
+        "mdl": "HomeAssistant Discovery for ThermoPI",
+        "sw": "https://github.com/SirGoodenough/ThermoPI"
+    },
+    "unit_of_meas":"°F",
+    "dev_cla":"temperature",
+    "frc_upd": True,
+    "val_tpl": "{{ value_json.temperature }}"
+}
+
+payload_TC5config = {
+    "name": NAME_TC5,
+    "stat_t": TC5_STATE,
+    "avty_t": LWT,
+    "pl_avail": "Online",
+    "pl_not_avail": "Offline",
+    "uniq_id": TC5_ID,
+    "dev": {
+        "ids": [
+        D_ID,
+        DEVICE_ID
+        ],
+        "name": "ThermoPI",
+        'sa': AREA,
+        "mf": "SirGoodenough",
+        "mdl": "HomeAssistant Discovery for ThermoPI",
+        "sw": "https://github.com/SirGoodenough/ThermoPI"
+    },
+    "unit_of_meas":"°F",
+    "dev_cla":"temperature",
+    "frc_upd": True,
+    "val_tpl": "{{ value_json.temperature }}"
+}
+
+payload_TC6config = {
+    "name": NAME_TC6,
+    "stat_t": TC6_STATE,
+    "avty_t": LWT,
+    "pl_avail": "Online",
+    "pl_not_avail": "Offline",
+    "uniq_id": TC6_ID,
+    "dev": {
+        "ids": [
+        D_ID,
+        DEVICE_ID
+        ],
+        "name": "ThermoPI",
+        'sa': AREA,
+        "mf": "SirGoodenough",
+        "mdl": "HomeAssistant Discovery for ThermoPI",
+        "sw": "https://github.com/SirGoodenough/ThermoPI"
+    },
+    "unit_of_meas":"°F",
+    "dev_cla":"temperature",
+    "frc_upd": True,
+    "val_tpl": "{{ value_json.temperature }}"
+}
+
+    #Log Message to start
+print('Logging sensor measurements every {0} seconds.'.format(LOOP))
 print('Press Ctrl-C to quit.')
-print('Connecting to MQTT on {0}'.format(MOSQUITTO_HOST))
-mqttempC = mqtt.Client('python_pub', 'False', 'MQTTv311',)
-mqttempC.username_pw_set(MOSQUITTO_USER, MOSQUITTO_PWD)
-mqttempC.will_set('furnacepi/lwt', 'Offline', 0, True)
+mqttc = mqtt.Client('python_pub', 'False', 'MQTTv311', 60)
+mqttc.disable_logger()
+mqttc.username_pw_set(USER, PWD) # deactivate if not needed
+mqttConnect()
 
 try:
-        # Log onto the MQTT server
-    mqttempC.connect(MOSQUITTO_HOST, MOSQUITTO_PORT)
-    mqttempC.publish('furnacepi/lwt', 'Online', 0, True)
-    
     count = 0
     while count < 7:
         if count > 5:  # Reset the loop
@@ -251,19 +512,19 @@ try:
 
         temp = 0.0
         humidity = 0.0
-        ftemp = templ_t_string + str(count)
-        fhumid = templ_h_string + str(count)
         if count > 4:
             thermocouple()
         elif count > 2:
             W1()
         else:
-            temphumid()
-        mqttsend()
-        time.sleep(FREQUENCY_SECONDS)
+            tempHumid()
+        mqttSend()
+        time.sleep(LOOP)
 
-except Exception as e:
-    mqttempC.publish('furnacepi/lwt', 'Offline', 0, True)
-    mqttempC.disconnect()
-    print('Connection Error: ' + str(e))
-    pass
+except KeyboardInterrupt:
+    print(' Keyboard Interrupt. Closing MQTT.')
+    mqttc.publish(LWT, 'Offline', 1, True)
+    time.sleep(1)
+    mqttc.loop_stop()
+    mqttc.disconnect()
+    sys.exit()
