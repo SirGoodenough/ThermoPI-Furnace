@@ -29,6 +29,9 @@ Program requirements (as written):  (Feel free to fork it & update the obsolete 
 
 **If you have any questions, comments or additions be sure to add an issue and bring them up on my Discord Server:** 
 
+This is roughly the circuit used with this program:
+![Sample Circuit matching this software](ThermoPI-Furnace.png)
+
 ### Contact Links:
 * [Discord WhatAreWeFixingToday](https://discord.gg/Uhmhu3B)
 * [What are we Fixing Today Homepage](https://www.WhatAreWeFixing.Today/)
