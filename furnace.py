@@ -504,7 +504,7 @@ payload_TC6config = {
 print('Logging {0} sensor measurements every {1} seconds.'.format(D_ID, LOOP))
 print('Press Ctrl-C to quit.')
 mqttc = mqtt.Client('python_pub', 'False', 'MQTTv311', 60)
-mqttc.disable_logger()  # Saves wear on SD card Memory.  Remove as needed for troubleshooting
+#mqttc.disable_logger()  # Saves wear on SD card Memory.  Remove as needed for troubleshooting
 mqttc.username_pw_set(USER, PWD) # deactivate if not needed
 mqttConnect()
 
