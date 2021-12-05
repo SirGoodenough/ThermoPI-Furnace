@@ -209,9 +209,7 @@ def mqttConnect():
     mqttc.publish(CONFIG_W14, json.dumps(payload_W14config), 1, True)
     mqttc.publish(CONFIG_TC5, json.dumps(payload_TC5config), 1, True)
     mqttc.publish(CONFIG_TC6, json.dumps(payload_TC6config), 1, True)
-    print(CONFIGH_TH1)
-    print(payloadH_TH1config)
-    print('a-{0} b-{1} c={2} d={3} e={4} f={5} g={6} h={7}'.format(a,b,c,d,e,f,g,h))
+    print('a-{0} b-{1} c={2} d={3} e={4} f={5} g={6} h={7}'.format(LWT,CONFIGH_TH1,CONFIGT_TH1,CONFIGT_TH2,CONFIG_W13,CONFIG_W14,CONFIG_TC5,CONFIG_TC6))
 
 # Type of sensor, can be Adafruit_DHT.DHT11, Adafruit_DHT.DHT22, or Adafruit_DHT.AM2302.
 DHT_TYPE = Adafruit_DHT.AM2302
