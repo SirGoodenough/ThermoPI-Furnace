@@ -210,11 +210,8 @@ def mqttConnect():
     mqttc.publish(CONFIG_TC5, json.dumps(payload_TC5config), 1, True)
     mqttc.publish(CONFIG_TC6, json.dumps(payload_TC6config), 1, True)
 
-# Type of sensor, can be Adafruit_DHT.DHT11, Adafruit_DHT.DHT22, or Adafruit_DHT.AM2302.
-DHT_TYPE = Adafruit_DHT.AM2302
-
-temp = 0.00
-humidity = 0.00
+temp = 0.0
+humidity = 0.0
 # set loop counter
 count = 0
 # Get the library for the thermocouples
@@ -503,10 +500,9 @@ payload_TC6config = {
     #Log Message to start
 print('Logging {0} sensor measurements every {1} seconds.'.format(D_ID, LOOP))
 print('Press Ctrl-C to quit.')
-mqttc = mqtt.Client('python_pub', 'False', 'MQTTv311')
-#mqttc.disable_logger()  # Saves wear on SD card Memory.  Remove as needed for troubleshooting
+mqttc = mqtt.Client(D_ID, 'False', 'MQTTv311')
+mqttc.disable_logger()  # Saves wear on SD card Memory.  Remove as needed for troubleshooting
 mqttc.username_pw_set(USER, PWD) # deactivate if not needed
-print('user -{0}- pwd -{1}-'.format(USER, PWD))
 mqttConnect()
 
 try:
