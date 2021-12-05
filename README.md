@@ -23,7 +23,7 @@ Program requirements (as written):  (Feel free to fork it & update the obsolete 
 + [PyYAML](https://pypi.org/project/PyYAML/) For reading the YAML parameter file
 + [pigpio](http://abyz.co.uk/rpi/pigpio/python.html) For reading the Thermocouples (MAX6675)
 + [max6675](https://github.com/tdack/MAX6675) Thermocouple demux code
-+ [W1ThermSensor](https://github.com/timofurrer/w1thermsensor) For 2 wire temp sensors [DS18B20](http://www.d3noob.org/2015/02/raspberry-pi-multiple-temperature.html)
++ [W1ThermSensor](https://github.com/timofurrer/w1thermsensor) For 2 wire temp sensors [(DS18B20)](http://www.d3noob.org/2015/02/raspberry-pi-multiple-temperature.html)
 + [Adafruit_DHT](https://github.com/adafruit/Adafruit_Python_DHT) For temp / humid sensors (AM2302)
 + [paho-mqtt](https://pypi.org/project/paho-mqtt/) For MQTT broker connection
 
