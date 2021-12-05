@@ -5,7 +5,7 @@ After=multi-user.target network.target
 [Service]
 User=pi
 Type=simple
-ExecStart=/usr/bin/python3 /opt/ThermoPI-Furnace/furnace.py
+ExecStart=/usr/bin/python3 /opt/ThermoPI-Furnace/furnace.py > /dev/null 2>&1
 KillSignal=SIGINT
 Restart=always
 RestartSec=10
