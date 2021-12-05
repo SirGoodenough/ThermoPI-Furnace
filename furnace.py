@@ -157,24 +157,6 @@ def tempHumid():
         # Use while Troubleshooting...
     # print('Temp: {0:0.1f}F Humd: {1:0.1f}%'.format(temp, humidity))
 
-def mqttConnect():
-    print('Connecting to MQTT on {0} {1}'.format(HOST,PORT))
-    mqttc.connect(HOST, PORT, 60)
-    mqttc.loop_start()
-    mqttc.publish(LWT, "Online", 1, True)
-    a= mqttc.publish(CONFIGH_TH1, json.dumps(payloadH_TH1config), 1, True)
-    b= mqttc.publish(CONFIGT_TH1, json.dumps(payloadT_TH1config), 1, True)
-    c= mqttc.publish(CONFIGH_TH2, json.dumps(payloadH_TH2config), 1, True)
-    d= mqttc.publish(CONFIGT_TH2, json.dumps(payloadT_TH2config), 1, True)
-    e= mqttc.publish(CONFIG_W13, json.dumps(payload_W13config), 1, True)
-    f= mqttc.publish(CONFIG_W14, json.dumps(payload_W14config), 1, True)
-    g= mqttc.publish(CONFIG_TC5, json.dumps(payload_TC5config), 1, True)
-    h= mqttc.publish(CONFIG_TC6, json.dumps(payload_TC6config), 1, True)
-    print(CONFIGH_TH1)
-    print(payloadH_TH1config)
-    print('a-{0} b-{1} c={2} d={3} e={4} f={5} g={6} h={7}'.format(a,b,c,d,e,f,g,h))
-
-
 # Subroutine to send results to MQTT
 def mqttSend():
     global temp
@@ -213,6 +195,23 @@ def mqttSend():
         time.sleep(1)
         mqttConnect()
         pass
+
+def mqttConnect():
+    print('Connecting to MQTT on {0} {1}'.format(HOST,PORT))
+    mqttc.connect(HOST, PORT, 60)
+    mqttc.loop_start()
+    mqttc.publish(LWT, "Online", 1, True)
+    mqttc.publish(CONFIGH_TH1, json.dumps(payloadH_TH1config), 1, True)
+    mqttc.publish(CONFIGT_TH1, json.dumps(payloadT_TH1config), 1, True)
+    mqttc.publish(CONFIGH_TH2, json.dumps(payloadH_TH2config), 1, True)
+    mqttc.publish(CONFIGT_TH2, json.dumps(payloadT_TH2config), 1, True)
+    mqttc.publish(CONFIG_W13, json.dumps(payload_W13config), 1, True)
+    mqttc.publish(CONFIG_W14, json.dumps(payload_W14config), 1, True)
+    mqttc.publish(CONFIG_TC5, json.dumps(payload_TC5config), 1, True)
+    mqttc.publish(CONFIG_TC6, json.dumps(payload_TC6config), 1, True)
+    print(CONFIGH_TH1)
+    print(payloadH_TH1config)
+    print('a-{0} b-{1} c={2} d={3} e={4} f={5} g={6} h={7}'.format(a,b,c,d,e,f,g,h))
 
 # Type of sensor, can be Adafruit_DHT.DHT11, Adafruit_DHT.DHT22, or Adafruit_DHT.AM2302.
 DHT_TYPE = Adafruit_DHT.AM2302
@@ -507,10 +506,10 @@ payload_TC6config = {
     #Log Message to start
 print('Logging {0} sensor measurements every {1} seconds.'.format(D_ID, LOOP))
 print('Press Ctrl-C to quit.')
-one = mqttc = mqtt.Client('python_pub', 'False', 'MQTTv311', 60)
+mqttc = mqtt.Client('python_pub', 'False', 'MQTTv311', 60)
 #mqttc.disable_logger()  # Saves wear on SD card Memory.  Remove as needed for troubleshooting
-two = mqttc.username_pw_set(USER, PWD) # deactivate if not needed
-print('assign {0} connect {1}'.format(one, two))
+mqttc.username_pw_set(USER, PWD) # deactivate if not needed
+print('user -{0}- pwd -{1}-'.format(USER, PWD))
 mqttConnect()
 
 try:
