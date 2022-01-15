@@ -1,7 +1,7 @@
 #!/bin/sh
 
-echo "Stopping ThermoPI"
-sudo systemctl stop ThermoPI.service  
+echo "Stopping ThermoPI-Furnace"
+sudo systemctl stop thermoPIFurnace.service  
 
 echo "Copy file over"
 sudo cp /opt/ThermoPI-Furnace/thermoPIFurnace.service /lib/systemd/system/thermoPIFurnace.service
