@@ -4,12 +4,12 @@ Use a Raspberry PI connected to one or more temperature sensors to send the resu
 
 ## USAGE
 
-Install the program into opt/ThermoPI-Furnace or any suitable location. (Some people like /usr/local/bin instead of /opt)  Make sure the username that is going to be running this script has access to the files and is able to get at python and anything else needed and used here-in.
+Install the program into opt/ThermoPI-Furnace or any suitable location. (Some people like /usr/local/bin instead of /opt) Make sure the username that is going to be running this script has access to the files and is able to get at python and anything else needed and used here-in.
 
 You will need to rename the file ***MYsecretsSample.yaml*** to ***MYsecrets.yaml***.
-Edit the contents of the new ***MYsecrets.yaml*** to match your MQTT & Home Assistant installation and requirements.  You will also need to supply the full path to the secrets file in the **Get the parameter file** section of this python code around line 225.
+Edit the contents of the new ***MYsecrets.yaml*** to match your MQTT & Home Assistant installation and requirements. You will also need to supply the full path to the secrets file in the **Get the parameter file** section of this python code around line 225.
 
-This program grabs the 2nd half of the MAC address to use as the device ID.  This only works consistantly when there is only 1 Ethernet interface configured or you have your multiple interfaces cloned to the same MAC Address.  For instance if it boots from WIFI, it will gram that MAC, and if it uses the Ethernet cable or a USB interface, it will grab that MAC.  You get my point.  This can be avoided by hard coding the DeviceID with the random and unique number of your choice.  Also I have not tested this with IP6 addresses.  If you have solutions to any of this, please share.
+This program grabs the 2nd half of the MAC address to use as the device ID. This only works consistantly when there is only 1 Ethernet interface configured or you have your multiple interfaces cloned to the same MAC Address. For instance if it boots from WIFI, it will grab that MAC, and if it uses the Ethernet cable or a USB interface, it will grab that MAC. You get my point. This can be avoided by hard coding the DeviceID with the random and unique number of your choice. Also I have not tested this with IP6 addresses. If you have solutions to any of this, please share.
 
 ## AUTO-Start
 
@@ -21,7 +21,7 @@ To run the program at boot in order to get constant readings, there is the Therm
 
 The load-service.sh script will stop and scratch reload the service from the local repository (Once you get all the permissions happy).
 
-The furnRestart.sh is the script to quickly restart the process if needed during troubleshooting.  I found it helpful.
+The furnRestart.sh is the script to quickly restart the process if needed during troubleshooting. I found it helpful.
 
 ## Requirements
 
