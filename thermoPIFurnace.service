@@ -3,9 +3,9 @@ Description=ThermoPI-Furnace Status Reader
 After=multi-user.target network.target
 
 [Service]
-User=pi
+User=root
 Type=simple
-ExecStart=/usr/bin/python3 /opt/ThermoPI-Furnace/furnace.py > /dev/null 2>&1
+ExecStart=/usr/bin/python3 /opt/ThermoPI-Furnace/furnace.py
 KillSignal=SIGINT
 Restart=always
 RestartSec=10
