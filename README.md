@@ -133,7 +133,7 @@ Troubleshoot as needed.  'MQTT Update result 0' means that part of the loop went
 
 ### Auto Start
 
-Long term use of this software will make too many writes to the SD card, filling it up and wearing out the card.  Therefore ``` > /dev/null 2>&1``` has been added to the 'thermoPIFurnace.service' file to reduce writes to the SD card.  For Troubleshooting you *MAY* want to turn this off temporarily. Just remove those characters from this file and all will be logged. Be sure to turn this on or off as you desire before running this section, or if you change that file re-run this section. Frankly I prefer stopping the application ```sudo systemctl stop thermoPIFurnace.service``` and running it manually like above for troubleshooting.  Then restarting it when done ```sudo systemctl start thermoPIFurnace.service```.
+Long term use of this software will make too many writes to the SD card, filling it up and wearing out the card.  Therefore ``` > /dev/null 2>&1``` has been added to the ```thermoPIFurnace.service``` file to reduce writes to the SD card.  For Troubleshooting you *MAY* want to turn this off temporarily. Just remove those characters from this file and all will be logged. Be sure to turn this on or off as you desire before running this section, or if you change that file re-run this section. Frankly I prefer stopping the application ```sudo systemctl stop thermoPIFurnace.service``` and running it manually like above for troubleshooting.  Then restarting it when done ```sudo systemctl start thermoPIFurnace.service```.
 
 The line 'User=XXX' in the file ```thermoPIFurnace.service``` needs to be edited to match the username that will be running the application.  Running as Root is *HIGHLY DISCOURAGED*.
 
