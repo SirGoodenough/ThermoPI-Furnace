@@ -109,6 +109,7 @@ sudo chgrp [your user name here] ./ThermoPI-Furnace
 ### Get the software:
 
 ```bash
+cd /opt
 git clone https://github.com/SirGoodenough/ThermoPI-Furnace.git
 cd ThermoPI-Furnace
 ```
@@ -124,7 +125,7 @@ nano MYsecrets,yaml
 
 ### Test that everything works
 
-Troubleshoot as needed.  'MQTT Update result 0' means it went well.  After you get it to loop thru a couple of times, continue to next step.
+Troubleshoot as needed.  'MQTT Update result 0' means that part of the loop went well.  After you get it to loop thru a couple of times, use 'ctrl-c' to stop it and continue to next step.
 
 ```bash
 /usr/bin/python3 /opt/ThermoPI-Furnace/furnace.py
@@ -132,12 +133,49 @@ Troubleshoot as needed.  'MQTT Update result 0' means it went well.  After you g
 
 ### Auto Start
 
-The above section covers editing the 'thermoPIFurnace.service' file to reduce writes to the SD card.  Be sure to turn this on or off as you desire before running this section, or if you change that file re-run this section.
+Long term use of this software will make too many writes to the SD card, filling it up and wearing out the card.  Therefore ``` > /dev/null 2>&1``` has been added to the 'thermoPIFurnace.service' file to reduce writes to the SD card.  For Troubleshooting you *MAY* want to turn this off temporarily. Just remove those characters from this file and all will be logged. Be sure to turn this on or off as you desire before running this section, or if you change that file re-run this section. Frankly I prefer stopping the application ```sudo systemctl stop thermoPIFurnace.service``` and running it manually like above for troubleshooting.  Then restarting it when done ```sudo systemctl start thermoPIFurnace.service```.
+
+The line 'User=XXX' in the file ```thermoPIFurnace.service``` needs to be edited to match the username that will be running the application.  Running as Root is *HIGHLY DISCOURAGED*.
 
 ```bash
+/opt/ThermoPI-Furnace/load-service.sh
+```
 
+You should see similar to this:
+
+```text
+furnacepi@furnpi:/opt/ThermoPI-Furnace $ ./load-service.sh
+Stopping ThermoPI-Furnace
+Failed to stop thermoPIFurnace.service: Unit thermoPIFurnace.service not loaded.
+Copy file over
+Change permissions on new file
+Reload the systemd daemon
+Enable the new service
+Created symlink /etc/systemd/system/multi-user.target.wants/thermoPIFurnace.service → /lib/systemd/system/thermoPIFurnace.service.
+Start the new service
+Check that the new service is running
+● thermoPIFurnace.service - ThermoPI-Furnace Status Reader
+     Loaded: loaded (/lib/systemd/system/thermoPIFurnace.service; enabled; vendor preset: enabled)
+     Active: active (running) since Sun 2023-01-22 14:02:40 CST; 7s ago
+   Main PID: 1267 (python3)
+      Tasks: 3 (limit: 1596)
+        CPU: 1.242s
+     CGroup: /system.slice/thermoPIFurnace.service
+             └─1267 /usr/bin/python3 /opt/ThermoPI-Furnace/furnace.py > /dev/null 2>&1
+
+Jan 22 14:02:40 furnpi systemd[1]: Started ThermoPI-Furnace Status Reader.
+```
+
+### Home Assistant
+
+After it's running head to home assistant devices [![Open your Home Assistant instance and show your devices.](https://my.home-assistant.io/badges/devices.svg)](https://my.home-assistant.io/redirect/devices/) and look for ```ThermoPI Furnace```.  That is your list of sensors which you can do with as any other sensor.
+
+![Sample Home Assistant Screen](HA-Screenshot.png)
+
+### Schematic
 
 This is roughly the circuit used with this program:
+
 ![Sample Circuit matching this software](ThermoPI-Furnace.png)
 
 ### Contact Links
