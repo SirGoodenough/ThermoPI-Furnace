@@ -2,7 +2,7 @@
 
 import pigpio  # http://abyz.co.uk/rpi/pigpio/python.html
 import Adafruit_DHT
-from w1thermsensor import W1ThermSensor
+from w1thermsensor import W1ThermSensor, Sensor
 import paho.mqtt.client as mqtt
 import sys
 import time
@@ -84,12 +84,12 @@ def W1():
     temp = 0.0
 
     # sensor = W1ThermSensor()
-    sensor = W1ThermSensor(W1ThermSensor.DS18B20, list[count])
+    sensor = W1ThermSensor(sensor_type=Sensor.DS18B20, sensor_id=list[count])
 
     # Get the temp
     tempC = sensor.get_temperature()
     # Test the result.  Make sure it is reasonable and not a glitch.
-    if tempC is None or tempC > 150.0 or tempC < 1.0:
+    if tempC is None or tempC > 120.0 or tempC < 1.0:
         return
     # Conversion to F & round to .1
     tF = round((9.0/5.0 * tempC + 32.0), 1)
