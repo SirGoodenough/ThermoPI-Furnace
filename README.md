@@ -37,6 +37,100 @@ Program requirements (as written):  (Feel free to fork it & update the obsolete 
 
 **If you have any questions, comments or additions be sure to add an issue and bring them up on my Discord Server:**
 
+## Installation
+
+Suggested image for your PI is the latest 32bit lite.  You can use the regular load if you are using the PI for other things, but none of the gui functions are needed.  The Raspi imager software also lets you set up name, password, timezone, and start the ssh server on image load, so do those things.  After it boots log in and update-upgrade it to get all the packages up to date.  Reboot...
+
+Use raspi-config to set up localization. In the 'Interface Options' enable 'Remote GPIO'. You may want to add other things.
+
+### Update PIP, git, and pigpio
+
+```bash
+sudo apt-get update                  
+sudo apt-get install python3-pip git pigpio python3-gpiozero python3-pigpio
+sudo python3 -m pip install --upgrade pip setuptools wheel
+sudo systemctl enable pigpiod
+sudo systemctl start pigpiod
+```
+
+### Install the requirements
+
+```bash
+sudo pip3 install Adafruit_DHT PyYAML w1thermsensor paho-mqtt
+```
+
+### Install the 1 wire devices
+
+**NOTE:** Be sure to note the serial numbers of the sensors and know where each sensor is physically located.
+
+```bash
+sudo nano /boot/config.txt
+```
+
+Add this line at the end.  I am using GPIO23.  You can use another GPIO but the GPIO numbers (not the header pin numbers) must match where the dallas sensors are connected.
+
+If you are using the internal pull-up (NOT Recommended) you can eliminate the ',pullup=0' part.
+
+```text
+dtoverlay=w1-gpio,gpiopin=23,pullup=0
+```
+
+Then reboot:
+
+```bash
+sudo reboot
+```
+
+Then install the 1-wire sensors and make sure they are there.
+
+```bash
+sudo modprobe w1-gpio
+sudo modprobe w1-therm
+ls -la /sys/bus/w1/devices
+```
+
+You should see something like this with different numbers:
+
+```text
+28-3c01f0965030  28-60d70d1864ff  w1_bus_master1
+```
+
+The actual serial number(s) to remember is everything after the '28-'.
+
+### Make the folder:
+
+```bash
+cd /opt
+sudo mkdir ThermoPI-Furnace
+sudo chown [your user name here] ./ThermoPI-Furnace
+sudo chgrp [your user name here] ./ThermoPI-Furnace
+```
+
+### Get the software:
+
+```bash
+git clone https://github.com/SirGoodenough/ThermoPI-Furnace.git
+cd ThermoPI-Furnace
+```
+
+### Generate your version of the MYsecrets.yaml
+
+Based on the MYsecretsSample.yaml as a starting point, make your own.  You will need to have figured out your 1-wire sensor serial numbers and know your MQTT login information to complete this section.
+
+```bash
+cp MYsecretsSample.yaml MYsecrets.yaml
+nano MYsecrets,yaml
+```
+
+### Test that everything works
+
+Troubleshoot as needed.  'MQTT Update result 0' means it went well.
+
+```bash
+/usr/bin/python3 /opt/ThermoPI-Furnace/furnace.py
+```
+
+
 This is roughly the circuit used with this program:
 ![Sample Circuit matching this software](ThermoPI-Furnace.png)
 
