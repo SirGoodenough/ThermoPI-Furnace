@@ -84,7 +84,7 @@ def W1():
     temp = 0.0
 
     # sensor = W1ThermSensor()
-    sensor = W1ThermSensor(W1ThermSensor.THERM_SENSOR_DS18B20, list[count])
+    sensor = W1ThermSensor(W1ThermSensor.DS18B20, list[count])
 
     # Get the temp
     tempC = sensor.get_temperature()
