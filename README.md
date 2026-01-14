@@ -166,6 +166,135 @@ Check that the new service is running
 Jan 22 14:02:40 furnpi systemd[1]: Started ThermoPI-Furnace Status Reader.
 ```
 
+### Instructions for Setting Up ThermoPI-Furnace with a venv  (Auto Start)
+
+These instructions assume you have Python 3.7 or later installed.
+**WARNING** These venv instructions are LLM Generated and have not been fully
+  tested yet. Verification and debug is in progress. Use at your own risk...
+
+These instructions assume you’re running the ThermoPI-Furnace on a Raspberry Pi and need it to start automatically when the Pi boots.
+
+**1. Prerequisites:**
+
+*   **Raspberry Pi:** You’ll need a Raspberry Pi running a recent OS (Raspberry Pi OS is recommended).
+*   **Git:** Ensure Git is installed on the Pi.
+*   **SSH:** You'll need SSH access to the Pi to perform the setup.
+
+**2. Create and Activate the venv (on the Pi - via SSH):**
+
+*   **Connect to the Pi via SSH:** Use your terminal or SSH client to connect to the Raspberry Pi.
+*   **Create the venv:**
+
+    ```bash
+    python3 -m venv .venv
+    ```
+
+*   **Activate the venv:**
+
+    ```bash
+    source .venv/bin/activate
+    ```
+
+    *   This needs to be run *every* time the Pi boots, so we’ll automate this.
+
+**3. Clone the Repository (on the Pi - via SSH):**
+
+*   Make the Folder and Clone the repository as listed above
+
+*   **Navigate to the project directory:**
+
+    ```bash
+    cd ThermoPI-Furnace
+    ```
+
+**4. Install Dependencies (on the Pi - via SSH):**
+
+*   **Install the required dependencies:**
+
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+**5. Configuration (Important!) (on the Pi - via SSH):**
+
+*   **Modify `config.ini`:** This is crucial. Ensure you have:
+    *   `device_address`: Your Pi's IP address.
+    *   `port`: The port number.
+    *   `relay_names`:  Relay names.
+    *   `sensor_names`: Sensor names.
+    *   `device_name`: Device name.
+
+    *   **Remember to save this file after making changes.**
+
+**6. Automating Startup at Boot (on the Pi - via SSH):**
+
+This is the key change for an automatic setup. We'll use systemd, the standard init system for Linux.
+
+*   **Create a systemd service file:**
+
+    ```bash
+    sudo nano /etc/systemd/system/thermopifurnace.service
+    ```
+
+*   **Paste the following content into the file:**
+
+    ```
+    [Unit]
+    Description=ThermoPI-Furnace Status Reader
+    After=multi-user.target network.target
+
+    [Service]
+    User=furnacepi
+    Type=simple
+    WorkingDirectory=/opt/ThermoPI-Furnace # or the actual location
+    ExecStart=/opt/ThermoPI-Furnace/furnace.py > /dev/null 2>&1  # Full path to your script
+    KillSignal=SIGINT
+    Restart=always
+    RestartSec=10
+    SyslogIdentifier=ThermoPI-Furnace
+    StandardOutput=journal
+    StandardError=journal
+
+    [Install]
+    WantedBy=multi-user.target
+    ```
+
+    *   **Important:**  Adjust the `User`, `WorkingDirectory`, and `ExecStart` lines to match *your* specific setup. The `User` should be the user that owns the `ThermoPI-Furnace` directory.
+    *   `Restart=on-failure` ensures the script restarts if it crashes.
+    *   `StandardOutput=journal` and `StandardError=journal` send the output of the script to the systemd journal.
+
+*   **Save the file** (Ctrl+X, Y, Enter).
+
+*   **Enable and start the service:**
+
+    ```bash
+    sudo systemctl enable thermopifurnace.service
+    sudo systemctl start thermopifurnace.service
+    ```
+
+*   **Check the status:**
+
+    ```bash
+    sudo systemctl status thermopifurnace.service
+    ```
+
+    This will show you if the service is running, any errors, and recent output from the script.
+
+**7. Verify:**
+
+*   Reboot the Raspberry Pi (`sudo reboot`).
+*   After the reboot, check if the ThermoPI-Furnace script is running using: `sudo systemctl status thermopifurnace.service`. 
+
+**Key Considerations:**
+
+*   **Systemd:**  This setup relies on systemd to manage the ThermoPI-Furnace script as a service.
+*   **User:**  Running the script as a specific user (e.g., `pi`) is more secure than running it as root.
+*   **Full Paths:** Always use full paths to files and executables in systemd service files.
+*   **Journaling:** Using `journalctl` is crucial for debugging issues.
+
+This detailed setup provides a robust foundation for running the ThermoPI-Furnace automatically on your Raspberry Pi.  Remember to adjust the paths and settings to match your specific configuration.
+
+
 ### Home Assistant
 
 After it's running head to home assistant devices [![Open your Home Assistant instance and show your devices.](https://my.home-assistant.io/badges/devices.svg)](https://my.home-assistant.io/redirect/devices/) and look for ```ThermoPI Furnace```.  That is your list of sensors which you can do with as any other sensor.
