@@ -3,13 +3,18 @@ Description=ThermoPI-Furnace Status Reader
 After=multi-user.target network.target
 
 [Service]
-User=furnacepi
+User=|user|
 Type=simple
-ExecStart=/usr/bin/python3 /opt/ThermoPI-Furnace/furnace.py > /dev/null 2>&1
+ # Edit next line to exact location & replace |user| with real username.
+WorkingDirectory=/home/|user|/.ThermoPI/ThermoPI.Furnace
+ # Edit next line to exact location & replace |user| with real username.
+ExecStart=/bin/sh /home/|user|/.ThermoPI/ThermoPI.Furnace/startThermoPI.sh
 KillSignal=SIGINT
 Restart=always
 RestartSec=10
 SyslogIdentifier=ThermoPI-Furnace
+ # StandardOutput=journal
+ # StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
