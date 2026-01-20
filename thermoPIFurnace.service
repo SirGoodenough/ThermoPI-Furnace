@@ -1,20 +1,17 @@
 [Unit]
 Description=ThermoPI-Furnace Status Reader
-After=multi-user.target network.target
 
 [Service]
 User=|user|
-Type=simple
- # Edit next line to exact location & replace |user| with real username.
-WorkingDirectory=/home/|user|/.ThermoPI/ThermoPI.Furnace
- # Edit next line to exact location & replace |user| with real username.
-ExecStart=/bin/sh /home/|user|/.ThermoPI/ThermoPI.Furnace/startThermoPI.sh
+Group=|user|
+WorkingDirectory=/home/|user|/.ThermoPI/ThermoPI-Furnace
+ExecStart=/home/|user|/.ThermoPI/ThermoPI-Furnace/startThermoPI.sh > /dev/null 2>&1
 KillSignal=SIGINT
+Type=simple
 Restart=always
 RestartSec=10
-SyslogIdentifier=ThermoPI-Furnace
- # StandardOutput=journal
- # StandardError=journal
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target

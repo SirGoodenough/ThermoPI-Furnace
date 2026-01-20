@@ -1,9 +1,9 @@
 #!/bin/bash
 which python
-cd /home/off/.ThermoPI/ThermoPI-Furnace
+cd /home/|user|/.ThermoPI/ThermoPI-Furnace
 pwd
 activate() {
-. /home/off/.ThermoPI/ThermoPI-Furnace/bin/activate
+. /home/|user|/.ThermoPI/bin/activate
 }
 activate
 which python

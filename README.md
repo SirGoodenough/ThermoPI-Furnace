@@ -2,12 +2,31 @@
 
 Use a Raspberry PI connected to one or more temperature sensors to send the results to a MQTT server.
 
+## USER CHANGES
+
+Here is a complete list of all the files that need to be edited to represent your user name an/or your home folder path for this to work. Most of the changes you will be looking for the key ```|user|``` and replace it with your username.
+
++ furnace.py
++ load-service.sh
++ MYsecrets.yaml (copied & edited from MYsecretsSample.yaml)
++ startThermoPI.sh
++ thermoPIFurnace.service
++ all folder permissions in the executable file's path
+
 ## USAGE
 
-Install the program into opt/ThermoPI-Furnace or any suitable location. (Some people like /usr/local/bin instead of /opt) Make sure the username that is going to be running this script has access to the files and is able to get at python and anything else needed and used here-in.
+Install the program into ~/.ThermoPI/ThermoPI-Furnace/ or any suitable location. Make sure the username that is going to be running this script has access to the files and is able to get at python and anything else needed and used here-in. Use of a venv as described below is highly recommended.
+
+If you see this error:
+> FileNotFoundError: [Errno 2] No such file or directory: '/home/|user|/.ThermoPI/ThermoPI-Furnace/MYsecrets.yaml'
 
 You will need to rename the file ***MYsecretsSample.yaml*** to ***MYsecrets.yaml***.
-Edit the contents of the new ***MYsecrets.yaml*** to match your MQTT & Home Assistant installation and requirements. You will also need to supply the full path to the secrets file in the **Get the parameter file** section of this python code around line 225.
+Edit the contents of the new ***MYsecrets.yaml*** to match your MQTT & Home Assistant installation and requirements.
+
+If you see this error:
+> FileNotFoundError: [Errno 2] No such file or directory: '/home/|user|/.ThermoPI/ThermoPI-Furnace/MYsecrets.yaml'
+
+You will need to supply the full path to the secrets file in the **Get the parameter file** section of this python code around line 22.
 
 This program grabs the 2nd half of the MAC address to use as the device ID. This only works consistently when there is only 1 Ethernet interface configured or you have your multiple interfaces cloned to the same MAC Address. For instance if it boots from WIFI, it will grab that MAC, and if it uses the Ethernet cable or a USB interface, it will grab that MAC. You get my point. This can be avoided by hard coding the DeviceID with the random and unique number of your choice. Also I have not tested this with IP6 addresses. If you have solutions to any of this, please share.
 
@@ -17,17 +36,19 @@ Here is a good reference on setting up a program to run from systemd. Use it to 
 
 [How-To Geek on 'Startup With Systemd'](https://www.howtogeek.com/687970/how-to-run-a-linux-program-at-startup-with-systemd/)
 
-To run the program at boot in order to get constant readings, there is the ThermoPIFurnace.service to run this as a service with load-service.sh there to set it up as a service.
+To run the program at boot in order to get constant readings, there is the ThermoPIFurnace.service to run this as a service with load-service.sh there to set it up as a service. More detail in [Installation - Section 8](### 8. Automating Startup at Boot) below.
 
 The load-service.sh script will stop and scratch reload the service from the local repository (Once you get all the permissions happy).
 
 The furnRestart.sh is the script to quickly restart the process if needed during troubleshooting. I found it helpful.
 
+The startThermoPI.sh shell script starts the venv and run the program inside the venv so that all the requirements are there. Use this if running in a venv.
+
 ## Requirements
 
-Program requirements (as written):  (Feel free to fork it & update the obsolete DHT Libraries to CircuitPython DHT Libraries and dropping me a merge request...)
+Program requirements (as written):  (Feel free to fork it & update any obsolete Libraries and dropping me a merge request...)
 
-+ Python 3.6 or better
++ Python 3.11 or better
 + [PyYAML](https://pypi.org/project/PyYAML/) For reading the YAML parameter file
 + [pigpio](http://abyz.co.uk/rpi/pigpio/python.html) For reading the Thermocouples (MAX6675)
 + [max6675](https://github.com/tdack/MAX6675) Thermocouple demux code
@@ -41,7 +62,7 @@ Program requirements (as written):  (Feel free to fork it & update the obsolete 
 
 ### 1. Prerequisites:
 
-Suggested image for your PI is the latest 32bit lite.  You can use the regular load if you are using the PI for other things, but none of the gui functions are needed.  The Raspi imager software also lets you set up name, password, timezone, and start the ssh server on image load, so do those things.  After it boots log in and update-upgrade it to get all the packages up to date.  Reboot...
+Suggested image for your PI is the latest 64bit lite. You can use the regular load if you are using the PI for other things, but none of the gui functions are needed.  The Raspi imager software also lets you set up name, password, timezone, and start the ssh server on image load, so do those things.  After it boots log in and update-upgrade it to get all the packages up to date.  Reboot...
 *   **SSH:** You'll need SSH access to the Pi to perform the setup.
 Use raspi-config to set up localization. In the 'Interface Options' enable 'Remote GPIO' and I2C. You may want to add other things.
 *   **Python3:** A version of Python3 3.11 or newer is required.
@@ -52,6 +73,7 @@ These instructions assume you’re running the ThermoPI-Furnace on a Raspberry P
 ### 2. Create and Activate the venv (on the Pi - via SSH):
 
 > SOURCE: https://forums.raspberrypi.com/viewtopic.php?t=330651#p1979605
+
 *   **Connect to the Pi via SSH:** Use your terminal or SSH client to connect to the Raspberry Pi.
 *   **Create the venv and install git:**
 
@@ -68,7 +90,7 @@ These instructions assume you’re running the ThermoPI-Furnace on a Raspberry P
     source /home/|user|/.ThermoPI/bin/activate
     ```
 
-    * NOTE: The venv will need to be activated *every* time the python program runs (at boot or restart), so we’ll automate this.
+    * NOTE: The venv will need to be activated *every* time the python program runs (at boot or restart), so we’ll automate this using a shell script to start the python code. To leave the venv and return to regular command mode, the caommand is ```deactivate```.
 
 ### 3. Update PIP
 
@@ -76,26 +98,11 @@ These instructions assume you’re running the ThermoPI-Furnace on a Raspberry P
 python3 -m pip install --upgrade pip setuptools wheel
 ```
 
-  * Run Example:
-
-```text
-
-```
-
 ### 4. Install the requirements
 
 ```bash
-pip3 install PyYAML w1thermsensor paho-mqtt pigpio
-  # Source Adafruit_DHT install - https://stackoverflow.com/a
-  # Posted by Francesco Torchia
-  # Retrieved 2026-01-17, License - CC BY-SA 4.0
-pip3 install Adafruit_DHT --config-settings="--build-option=--force-pi"
-```
-
-  * Run Example:
-
-```text
-
+pip3 uninstall paho-mqtt
+pip3 install PyYAML w1thermsensor pigpio adafruit-circuitpython-dht paho-mqtt==1.6.0
 ```
 
 ### 5. Install the 1 wire devices
@@ -141,6 +148,8 @@ lrwxrwxrwx 1 root root 0 Jan 17 18:33 w1_bus_master1 -> ../../../devices/w1_bus_
 The actual serial number(s) to remember is everything after the '28-'.
 
 ### 5. Get the software:
+
+Change |user| to your user name.
 ```bash
 cd /home/|user|/.ThermoPI
 git clone https://github.com/SirGoodenough/ThermoPI-Furnace.git
@@ -158,78 +167,55 @@ nano MYsecrets.yaml
 
 ### 7. Test that everything works
 
+Be sure to change |user| to your user name.
 Troubleshoot as needed.  'MQTT Update result 0' means that part of the loop went well.  After you get it to loop thru a couple of times, use 'ctrl-c' to stop it and continue to next step.
 
 ```bash
-/usr/bin/python3 /opt/ThermoPI-Furnace/furnace.py
+/usr/bin/python3 /home/|user|/.ThermoPI/ThermoPI-Furnace/startThermoPI.sh
 ```
 
 ### 8. Automating Startup at Boot
 
-Long term use of this software will make too many writes to the SD card, filling it up and wearing out the card.  Therefore ``` > /dev/null 2>&1``` has been added to the ```thermoPIFurnace.service``` file to reduce writes to the SD card.  For Troubleshooting you *MAY* want to turn this off temporarily. Just remove those characters from this file and all will be logged. Be sure to turn this on or off as you desire before running this section, or if you change that file re-run this section. Frankly I prefer stopping the application ```sudo systemctl stop thermoPIFurnace.service``` and running it manually like above for troubleshooting.  Then restarting it when done ```sudo systemctl start thermoPIFurnace.service```.
+Long term use of this software will make too many writes to the SD card, filling it up and wearing out the card. Therefore ``` > /dev/null 2>&1``` has been added to the ```thermoPIFurnace.service``` file to reduce writes to the SD card. For Troubleshooting you *MAY* want to turn this off temporarily. Just remove those characters from this file and all will be logged. Be sure to turn this on or off as you desire before running this section, or if you change that file re-run this section.
 
-The lines '|user|' in the file ```thermoPIFurnace.service``` need to be edited to match the username that will be running the application.  Running as Root is *HIGHLY DISCOURAGED*.
+These 4 lines containing '|user|' in the file ```thermoPIFurnace.service```
+> User=|user|
+> Group=|user|
+> WorkingDirectory=/home/|user|/.ThermoPI/ThermoPI-Furnace
+> ExecStart=/home/|user|/.ThermoPI/ThermoPI-Furnace/startThermoPI.sh
+need to be edited to match the username & path that will be running the application. Running as Root is *HIGHLY DISCOURAGED*.
+Also all directories leading to the executable file need to have the permissions ```755``` for the systemctl process to find it properly.
 
+The shell script ```load-service.sh``` should be run every time after you edit ```thermoPIFurnace.service``` to install the changes, unless you want to push the changes manually to systemctl.
+
+You should see similar to this as it runs:
 ```bash
-/home/|user|/.ThermoPI/ThermoPI-Furnace/load-service.sh
+Should be run as sudo...
+
+Stopping ThermoPI-Furnace
+Copy file over
+Change permissions on new file
+Reload the systemd daemon
+Enable the new service
+Start the new service
+Check that the new service is running
+● thermoPIFurnace.service - ThermoPI-Furnace Status Reader
+     Loaded: loaded (/lib/systemd/system/thermoPIFurnace.service; enabled; preset: enabled)
+     Active: active (running) since Mon 2026-01-19 21:54:47 CST; 7s ago
+   Main PID: 6269 (startThermoPI.s)
+      Tasks: 8 (limit: 760)
+        CPU: 1.070s
+     CGroup: /system.slice/thermoPIFurnace.service
+             ├─6269 /bin/bash /home/|user|/.ThermoPI/ThermoPI-Furnace/startThermoPI.sh ">" /dev/null "2>&1"
+             ├─6273 python furnace.py
+             ├─6274 /home/|user|/.ThermoPI/lib/python3.11/site-packages/adafruit_blinka/microcontroller/bcm283x/pulseio/libgpiod>
+             └─6276 /home/|user|/.ThermoPI/lib/python3.11/site-packages/adafruit_blinka/microcontroller/bcm283x/pulseio/libgpiod>
+
+Jan 19 21:54:47 thermopifurn systemd[1]: Started thermoPIFurnace.service - ThermoPI-Furnace Status Reader.
+Jan 19 21:54:47 thermopifurn startThermoPI.sh[6270]: /usr/bin/python
+Jan 19 21:54:47 thermopifurn startThermoPI.sh[6269]: /home/|user|/.ThermoPI/ThermoPI-Furnace
+Jan 19 21:54:47 thermopifurn startThermoPI.sh[6271]: /home/|user|/.ThermoPI/bin/python
 ```
-
-You should see similar to this:
-
-```text
-SAMPLE SETUP RUN   H E R E
-```
-
-            **6. Automating Startup at Boot (on the Pi - via SSH):**
-            > SOURCE: https://forums.raspberrypi.com/viewtopic.php?t=330651#p1979605
-
-            The service file "startBOSS.service":
-
-            Code: Select all
-
-            [Unit]
-            Description=Systemd service to start BOSS on startup
-            After=multi-user.target
-
-            [Service]
-            User=pi
-            Group=pi
-            Type=simple
-            ExecStart=/bin/sh /home/pi/start.sh
-
-            [Install]
-            WantedBy=multi-user.target
-
-            Steps to start the service:
-
-            Code: Select all
-
-            sudo cp startBOSS.service ~/.config/systemd/user
-            systemctl --user daemon-reload
-            systemctl --user enable startBOSS.service
-            systemctl --user start startBOSS.service
-            systemctl --user status startBOSS.service
-
-                *   **Important:**  Adjust the `User`, `WorkingDirectory`, and `ExecStart` lines to match *your* specific setup. The `User` should be the user that owns the `ThermoPI-Furnace` directory.
-                *   `Restart=on-failure` ensures the script restarts if it crashes.
-                *   `StandardOutput=journal` and `StandardError=journal` send the output of the script to the systemd journal.
-
-            *   **Save the file** (Ctrl+X, Y, Enter).
-
-            *   **Enable and start the service:**
-
-                ```bash
-                sudo systemctl enable thermopifurnace.service
-                sudo systemctl start thermopifurnace.service
-                ```
-
-            *   **Check the status:**
-
-                ```bash
-                sudo systemctl status thermopifurnace.service
-                ```
-
-                This will show you if the service is running, any errors, and recent output from the script.
 
 ## Verify Installation
 
