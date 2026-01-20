@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 
 import pigpio  # http://abyz.co.uk/rpi/pigpio/python.html
-import Adafruit_DHT
+import adafruit_dht
+import board
 from w1thermsensor import W1ThermSensor, Sensor
 import paho.mqtt.client as mqtt
 import sys
@@ -9,151 +10,130 @@ import time
 import yaml
 import json
 import uuid
+import random
 
-'''
- DHT Sensor Data-logging to MQTT Temperature channel
+#  Get the parameter file
+# ########################
+#  ######################  The PATH below must be edited to match where the
+#   ####################            MYsecrets.yaml file lives!!!!
+#       ###########
+#          ####
+#           ##
+with open("/home/|user|/.ThermoPI/ThermoPI-Furnace/MYsecrets.yaml", "r") as ymlfile:
+    MYs = yaml.safe_load(ymlfile)
 
- Requies a Mosquitto Server Install On the destination.
-
- Copyright (c) 2014 Adafruit Industries
- Author: Tony DiCola
- MQTT Encahncements: David Cole (2016)
-
- Permission is hereby granted, free of charge, to any person obtaining a copy
- of this software and associated documentation files (the "Software"), to deal
- in the Software without restriction, including without limitation the rights
- to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- copies of the Software, and to permit persons to whom the Software is
- furnished to do so, subject to the following conditions:
-
- The above copyright notice and this permission notice shall be included in all
- copies or substantial portions of the Software.
-
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- SOFTWARE.
-
-<<<===============================<<<
- MAX6675.py
- 2016-05-02
- Public Domain
->>>===============================>>>
-This script reads the temperature of a type K thermocouple
-connected to a MAX6675 SPI chip.
-
-Type K thermocouples are made of chromel (+ve) and alumel (-ve)
-and are the commonest general purpose thermocouple with a
-sensitivity of approximately 41 uV/C.
-
-The MAX6675 returns a 12-bit reading in the range 0 - 4095 with
-the units as 0.25 degrees centigrade.  So the reported
-temperature range is 0 - 1023.75 C.
-
-Accuracy is about +/- 2 C between 0 - 700 C and +/- 5 C
-between 700 - 1000 C.
-
-The MAX6675 returns 16 bits as follows
-
-F   E   D   C   B   A   9   8   7   6   5   4   3   2   1   0
-0  B11 B10  B9  B8  B7  B6  B5  B4  B3  B2  B1  B0  0   0   X
-
-The reading is in B11 (most significant bit) to B0.
-
-The conversion time is 0.22 seconds.  If you try to read more
-often the sensor will always return the last read value.
-
-    # pi.spi_open(0, 1000000, 0)   # CE0, 1Mbps, main SPI
-    # pi.spi_open(1, 1000000, 0)   # CE1, 1Mbps, main SPI
-    # pi.spi_open(0, 1000000, 256) # CE0, 1Mbps, auxiliary SPI
-    # pi.spi_open(1, 1000000, 256) # CE1, 1Mbps, auxiliary SPI
-    # pi.spi_open(2, 1000000, 256) # CE2, 1Mbps, auxiliary SPI
-'''
+dht_device1 = adafruit_dht.DHT22(board.D4)
+dht_device2 = adafruit_dht.DHT22(board.D17)
 
 # Subroutine look up 1 Wire temp(s)
 def W1():
+    global humidity
     global temp
     global sensor
     global list
     global count
 
-    tempC = 0.0
-    temp = 0.0
+    _tempC = 0.0
+    _tF = 0.0
 
     # sensor = W1ThermSensor()
     sensor = W1ThermSensor(sensor_type=Sensor.DS18B20, sensor_id=list[count])
 
     # Get the temp
-    tempC = sensor.get_temperature()
+    _tempC = sensor.get_temperature()
     # Test the result.  Make sure it is reasonable and not a glitch.
-    if tempC is None or tempC > 120.0 or tempC < 1.0:
+    if _tempC is None or _tempC > 120.0 or _tempC < 1.0:
         return
     # Conversion to F & round to .1
-    tF = round((9.0/5.0 * tempC + 32.0), 1)
+    _tF = round((9.0/5.0 * _tempC + 32.0), 1)
     # Use while Troubleshooting...
-    # print("{:.1f}".format(tF))
+    # print("{:.1f}".format(_tF))
     # Done
-    temp = tF
+    temp = _tF
 
-
-# Subroutine look up thermcouple temps
+# Subroutine look up thermocouple temps
 def thermocouple():
     global temp
     global pi
     global list
     global count
 
-    temp = 0.0
-    tempC = 0.0
-    
-    # Check the thermocouple(s) on the Serial links.
-    sensor = pi.spi_open(list[count], 1000000, 0)
-    c, d = pi.spi_read(sensor, 2)
-    pi.spi_close(sensor)
+    _tempC = 0.0
+    _tF = 0.0
+    _d = 0
+    _c = 0
+    _word = 0
 
-    if c == 2:
-        word = (d[0] << 8) | d[1]
-        if (word & 0x8006) == 0:  # Bits 15, 2, and 1 should be zero.
-            tempC = (word >> 3)/4.0
+    # Check the thermocouple(s) on the Serial links.
+    _sensor = pi.spi_open(list[count], 1000000, 0)
+    _c, _d = pi.spi_read(_sensor, 2)
+    pi.spi_close(_sensor)
+
+    if _c == 2:
+        _word = (_d[0] << 8) | _d[1]
+        if (_word & 0x8006) == 0:  # Bits 15, 2, and 1 should be zero.
+            _tempC = (_word >> 3)/4.0
             # Test the result
-            if tempC is None or tempC > 1500.0 or tempC < 1.0:
+            if _tempC is None or _tempC > 1500.0 or _tempC < 1.0:
                 return
             # Conversion to F & round to .1
-            tF = round((9.0/5.0 * tempC + 32.0), 1)
+            _tF = round((9.0/5.0 * _tempC + 32.0), 1)
             # Use while Troubleshooting...
-            # print("{:.2f}".format(tF))
+            # print("{:.2f}".format(_tF))
         else:
-            print('bad reading {:b}'.format(word))
+            print('bad reading {:b}'.format(_word))
             return
         # Done
-        temp = tF
-
+        temp = _tF
 
 # Subroutine to look up temp/humid sensors
+#  Thanks to https://pimylifeup.com/raspberry-pi-humidity-sensor-dht22/
+#   for help with this section.
 def tempHumid():
+    global list
+    global count
     global temp
     global humidity
 
-    temp = 0.0
-    tempC = 0.0
+    _tempC = 0.0
+    _humidityI = 0.0
+    try:
+        # This section looks for a 4 to pick the first sensor,
+        #  then anything else picks the second sensor.
+        # If you are changing this, you would need to change the
+        #  loop and add more devices in the top variables.
 
-    time.sleep(LOOP / 10)  # Settling time
-    humidity, tempC = Adafruit_DHT.read_retry(
-        DHT_TYPE, list[count], retries=8, delay_seconds=.85)
-
+        if list[count] == 4:
+            time.sleep(LOOP / 10)  # Settling time
+            _humidityI = dht_device1.humidity
+            time.sleep(LOOP / 50)  # Settling time
+            _tempC = dht_device1.temperature
+        else:
+            time.sleep(LOOP / 10)  # Settling time
+            _humidityI = dht_device2.humidity
+            time.sleep(LOOP / 50)  # Settling time
+            _tempC = dht_device2.temperature
+            return
+    except RuntimeError as _e:
+        # Errors happen fairly often, DHT's are hard to read, just try again
+        print('DHT reading error: ' + str(_e.args[0]))
+        client.publish(LWT, 'Offline', 0, True)
+        time.sleep(2)
+        client.loop_stop()
+        client.disconnect()
+        time.sleep(1)
+        mqttConnect()
+        pass
     # Skip to the next reading if a valid measurement couldn't be taken.
     # This might happen if the CPU is under a lot of load and the sensor
     # can't be reliably read (timing is critical to read the sensor).
 
-    if humidity is None or humidity > 100.0 or tempC is None or tempC > 150.0:
-        print('bad reading {0} {1}'.format(tempC, humidity))
+    if _humidityI is None or _humidityI > 100.0 or _tempC is None or _tempC > 150.0:
+        print('bad reading {0} {1}'.format(_tempC, _humidityI))
         return
 
-    temp = round((9.0/5.0 * tempC + 32.0), 1)  # Conversion to F & round to .1
-    humidity = round(humidity, 1)            # Round to .1
+    temp = round((9.0/5.0 * _tempC + 32.0), 1)  # Conversion to F & round to .1
+    humidity = round(_humidityI, 1)             # Round to .1
         # Use while Troubleshooting...
     # print('Temp: {0:0.1f}F Humd: {1:0.1f}%'.format(temp, humidity))
 
@@ -161,7 +141,7 @@ def tempHumid():
 def mqttSend():
     global temp
     global humidity
-    global mqttc
+    global client
     global count
     global state_topic
 
@@ -175,7 +155,7 @@ def mqttSend():
             "humidity": humidity}
         OutState = state_topic[count]
         print('Updating {0} {1}'.format(OutState,json.dumps(payloadOut) ) )
-        (result1,mid) = mqttc.publish(OutState, json.dumps(payloadOut), 1, True)
+        (result1,mid) = client.publish(OutState, json.dumps(payloadOut), 1, True)
 
         currentdate = time.strftime('%Y-%m-%d %H:%M:%S')
         print('Date Time:   {0}'.format(currentdate))
@@ -184,32 +164,58 @@ def mqttSend():
         if result1 == 1:
             raise ValueError('Result message from MQTT was not 0')
 
-    except Exception as e:
+    except Exception as _e:
         # Error appending data, most likely because credentials are stale.
         #  disconnect and re-connect...
-        print('MQTT error, trying re-connect: ' + str(e))
-        mqttc.publish(LWT, 'Offline', 0, True)
+        print('MQTT error, trying re-connect: ' + str(_e))
+        client.publish(LWT, 'Offline', 0, True)
         time.sleep(2)
-        mqttc.loop_stop()
-        mqttc.disconnect()
+        client.loop_stop()
+        client.disconnect()
         time.sleep(1)
         mqttConnect()
         pass
 
+# Subroutine to connect to MQTT
 def mqttConnect():
+    global client
+    global HOST
+    global PORT
+    global USER
+    global PWD
+    global LWT
+    global CONFIGH_TH1
+    global CONFIGT_TH1
+    global CONFIGH_TH2
+    global CONFIGT_TH2
+    global CONFIG_W13
+    global CONFIG_W14
+    global CONFIG_TC5
+    global CONFIG_TC6
+    global payloadH_TH1config
+    global payloadT_TH1config
+    global payloadH_TH2config
+    global payloadT_TH2config
+    global payload_W13config
+    global payload_W14config
+    global payload_TC5config
+    global payload_TC6config
     print('Connecting to MQTT on {0} {1}'.format(HOST,PORT))
-    mqttc.connect(HOST, PORT, 60)
-    mqttc.loop_start()
-    mqttc.publish(LWT, "Online", 1, True)
-    mqttc.publish(CONFIGH_TH1, json.dumps(payloadH_TH1config), 1, True)
-    mqttc.publish(CONFIGT_TH1, json.dumps(payloadT_TH1config), 1, True)
-    mqttc.publish(CONFIGH_TH2, json.dumps(payloadH_TH2config), 1, True)
-    mqttc.publish(CONFIGT_TH2, json.dumps(payloadT_TH2config), 1, True)
-    mqttc.publish(CONFIG_W13, json.dumps(payload_W13config), 1, True)
-    mqttc.publish(CONFIG_W14, json.dumps(payload_W14config), 1, True)
-    mqttc.publish(CONFIG_TC5, json.dumps(payload_TC5config), 1, True)
-    mqttc.publish(CONFIG_TC6, json.dumps(payload_TC6config), 1, True)
+    client.connect(HOST, PORT, keepalive=60)
+    client.disable_logger()  # Saves wear on SD card Memory.  Remove as needed for troubleshooting
+    client.username_pw_set(USER, PWD) # deactivate if not needed
+    client.loop_start()
+    client.publish(LWT, "Online", 1, True)
+    client.publish(CONFIGH_TH1, json.dumps(payloadH_TH1config), 1, True)
+    client.publish(CONFIGT_TH1, json.dumps(payloadT_TH1config), 1, True)
+    client.publish(CONFIGH_TH2, json.dumps(payloadH_TH2config), 1, True)
+    client.publish(CONFIGT_TH2, json.dumps(payloadT_TH2config), 1, True)
+    client.publish(CONFIG_W13, json.dumps(payload_W13config), 1, True)
+    client.publish(CONFIG_W14, json.dumps(payload_W14config), 1, True)
+    client.publish(CONFIG_TC5, json.dumps(payload_TC5config), 1, True)
+    client.publish(CONFIG_TC6, json.dumps(payload_TC6config), 1, True)
 
+# set initial temp/humid values
 temp = 0.0
 humidity = 0.0
 # set loop counter
@@ -220,17 +226,7 @@ pi = pigpio.pi()
 if not pi.connected:
     exit(0)
 
-#  Get the parameter file
-with open("/opt/ThermoPI-Furnace/MYsecrets.yaml", "r") as ymlfile:
-    MYs = yaml.safe_load(ymlfile)
-
-# Type of sensor, can be Adafruit_DHT.DHT11, Adafruit_DHT.DHT22, or Adafruit_DHT.AM2302
-DHT_TYPE = Adafruit_DHT.AM2302
-# Example of sensor connected to Raspberry Pi pin 23
-#DHT_PIN = 23
-# Example of sensor connected to Beaglebone Black pin P8_11
-#DHT_PIN  = 'P8_11'
-
+# Read parameters from MYsecrets.yaml
 LOOP = MYs["MAIN"]["LOOP"]
 HOST = MYs["MAIN"]["HOST"]
 PORT = MYs["MAIN"]["PORT"]
@@ -246,6 +242,10 @@ TOPIC = "homeassistant/sensor/"
 NAMED = MYs["MAIN"]["DEVICE_NAME"]
 D_ID = DEVICE_ID + '_' + NAMED
 LWT = TOPIC + D_ID + '/lwt'
+
+# Create MQTT client
+client_id = f'{D_ID}-mqtt-{random.randint(0, 1000)}'
+client = mqtt.Client(client_id)
 
 PIN_TH1 = MYs["TEMP_HUMID"]["PIN_TH1"]
 NAMEH_TH1 = MYs["TEMP_HUMID"]["NAMEH_TH1"]
@@ -508,11 +508,8 @@ payload_TC6config = {
     #Log Message to start
 print('Logging {0} sensor measurements every {1} seconds.'.format(D_ID, LOOP))
 print('Press Ctrl-C to quit.')
-mqttc = mqtt.Client(D_ID, 'False', 'MQTTv311')
-mqttc.disable_logger()  # Saves wear on SD card Memory.  Remove as needed for troubleshooting
-mqttc.username_pw_set(USER, PWD) # deactivate if not needed
 mqttConnect()
-
+# Main loop reading and sending data
 try:
     count = 0
     while count < 7:
@@ -534,8 +531,45 @@ try:
 
 except KeyboardInterrupt:
     print(' Keyboard Interrupt. Closing MQTT.')
-    mqttc.publish(LWT, 'Offline', 1, True)
+    client.publish(LWT, 'Offline', 1, True)
     time.sleep(1)
-    mqttc.loop_stop()
-    mqttc.disconnect()
+    client.loop_stop()
+    client.disconnect()
     sys.exit()
+
+'''
+<<<===============================<<<
+ MAX6675.py
+ 2016-05-02
+ Public Domain
+>>>===============================>>>
+This script reads the temperature of a type K thermocouple
+connected to a MAX6675 SPI chip.
+
+Type K thermocouples are made of chromel (+ve) and alumel (-ve)
+and are the commonest general purpose thermocouple with a
+sensitivity of approximately 41 uV/C.
+
+The MAX6675 returns a 12-bit reading in the range 0 - 4095 with
+the units as 0.25 degrees centigrade.  So the reported
+temperature range is 0 - 1023.75 C.
+
+Accuracy is about +/- 2 C between 0 - 700 C and +/- 5 C
+between 700 - 1000 C.
+
+The MAX6675 returns 16 bits as follows
+
+F   E   D   C   B   A   9   8   7   6   5   4   3   2   1   0
+0  B11 B10  B9  B8  B7  B6  B5  B4  B3  B2  B1  B0  0   0   X
+
+The reading is in B11 (most significant bit) to B0.
+
+The conversion time is 0.22 seconds.  If you try to read more
+often the sensor will always return the last read value.
+
+    # pi.spi_open(0, 1000000, 0)   # CE0, 1Mbps, main SPI
+    # pi.spi_open(1, 1000000, 0)   # CE1, 1Mbps, main SPI
+    # pi.spi_open(0, 1000000, 256) # CE0, 1Mbps, auxiliary SPI
+    # pi.spi_open(1, 1000000, 256) # CE1, 1Mbps, auxiliary SPI
+    # pi.spi_open(2, 1000000, 256) # CE2, 1Mbps, auxiliary SPI
+'''
