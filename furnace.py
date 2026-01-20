@@ -87,6 +87,8 @@ def thermocouple():
         temp = _tF
 
 # Subroutine to look up temp/humid sensors
+#  Thanks to https://pimylifeup.com/raspberry-pi-humidity-sensor-dht22/
+#   for help with this section.
 def tempHumid():
     global list
     global count

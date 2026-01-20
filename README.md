@@ -36,7 +36,7 @@ Here is a good reference on setting up a program to run from systemd. Use it to 
 
 [How-To Geek on 'Startup With Systemd'](https://www.howtogeek.com/687970/how-to-run-a-linux-program-at-startup-with-systemd/)
 
-To run the program at boot in order to get constant readings, there is the ThermoPIFurnace.service to run this as a service with load-service.sh there to set it up as a service. More detail in [Installation - Section 8](### 8. Automating Startup at Boot) below.
+To run the program at boot in order to get constant readings, there is the ThermoPIFurnace.service to run this as a service with load-service.sh there to set it up as a service. More detail in [Installation - Section 8](#8.-automating-startup-at-boot) below.
 
 The load-service.sh script will stop and scratch reload the service from the local repository (Once you get all the permissions happy).
 
@@ -63,6 +63,7 @@ Program requirements (as written):  (Feel free to fork it & update any obsolete 
 ### 1. Prerequisites:
 
 Suggested image for your PI is the latest 64bit lite. You can use the regular load if you are using the PI for other things, but none of the gui functions are needed.  The Raspi imager software also lets you set up name, password, timezone, and start the ssh server on image load, so do those things.  After it boots log in and update-upgrade it to get all the packages up to date.  Reboot...
+
 *   **SSH:** You'll need SSH access to the Pi to perform the setup.
 Use raspi-config to set up localization. In the 'Interface Options' enable 'Remote GPIO' and I2C. You may want to add other things.
 *   **Python3:** A version of Python3 3.11 or newer is required.
@@ -90,7 +91,7 @@ These instructions assume you’re running the ThermoPI-Furnace on a Raspberry P
     source /home/|user|/.ThermoPI/bin/activate
     ```
 
-    * NOTE: The venv will need to be activated *every* time the python program runs (at boot or restart), so we’ll automate this using a shell script to start the python code. To leave the venv and return to regular command mode, the caommand is ```deactivate```.
+    * NOTE: The venv will need to be activated *every* time the python program runs (at boot or restart), so we’ll automate this using a shell script to start the python code. To leave the venv and return to regular command mode, the command is ```deactivate```.
 
 ### 3. Update PIP
 
@@ -176,7 +177,7 @@ Troubleshoot as needed.  'MQTT Update result 0' means that part of the loop went
 
 ### 8. Automating Startup at Boot
 
-Long term use of this software will make too many writes to the SD card, filling it up and wearing out the card. Therefore ``` > /dev/null 2>&1``` has been added to the ```thermoPIFurnace.service``` file to reduce writes to the SD card. For Troubleshooting you *MAY* want to turn this off temporarily. Just remove those characters from this file and all will be logged. Be sure to turn this on or off as you desire before running this section, or if you change that file re-run this section.
+Long term use of this software will make too many writes to the SD card, filling it up and wearing out the card. Therefore ```> /dev/null 2>&1``` has been added to the ```thermoPIFurnace.service``` file to reduce writes to the SD card. For Troubleshooting you *MAY* want to turn this off temporarily. Just remove those characters from this file and all will be logged. Be sure to turn this on or off as you desire before running this section, or if you change that file re-run this section.
 
 These 4 lines containing '|user|' in the file ```thermoPIFurnace.service```
 > User=|user|
