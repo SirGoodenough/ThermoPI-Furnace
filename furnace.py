@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import pigpio  # http://abyz.co.uk/rpi/pigpio/python.html
+import pigpio  # https://abyz.me.uk/rpi/pigpio/index.html
 import adafruit_dht
 import board
 from w1thermsensor import W1ThermSensor, Sensor
