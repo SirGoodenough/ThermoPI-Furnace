@@ -58,7 +58,7 @@ def tempHumid():
     # This might happen if the CPU is under a lot of load and the sensor
     # can't be reliably read (timing is critical to read the sensor).
 
-    if _humidityI is None or _humidityI > 100.0 or _tempC is None or _tempC > 150.0:
+    if _humidityI is None or _humidityI > 100.0 or _tempC is None or _tempC > 150.0 or _tempC < 40.0:
         print('bad reading {0} {1}'.format(_tempC, _humidityI))
         return
 
@@ -84,7 +84,7 @@ def W1():
     # Get the temp
     _tempC = sensor.get_temperature()
     # Test the result.  Make sure it is reasonable and not a glitch.
-    if _tempC is None or _tempC > 120.0 or _tempC < 1.0:
+    if _tempC is None or _tempC > 120.0 or _tempC < 40.0:
         return
     # Conversion to F & round to .1
     _tF = round((9.0/5.0 * _tempC + 32.0), 1)
@@ -116,7 +116,7 @@ def thermocouple():
         if (_word & 0x8006) == 0:  # Bits 15, 2, and 1 should be zero.
             _tempC = (_word >> 3)/4.0
             # Test the result
-            if _tempC is None or _tempC > 1500.0 or _tempC < 1.0:
+            if _tempC is None or _tempC > 1500.0 or _tempC < 40.0:
                 return
             # Conversion to F & round to .1
             _tF = round((9.0/5.0 * _tempC + 32.0), 1)
@@ -132,8 +132,8 @@ def thermocouple():
 def disablePelletFeed(_state):
     global pi
 
-    # This operates a NC relay contact,
-    #   default (off) is to allow normal operation
+    # This operates GPIO24 connected to an NC relay contact,
+    #   default (0) is to allow normal operation
     if _state == 1:
         pi.write(24, 1)  # Turn OFF the pellet feed
     else:
@@ -146,24 +146,25 @@ def mqttSend():
     global client
     global count
     global state_topic
+    global LWT
+    global disable_pellet_topic
 
     if temp == 0.0:
         return
 
     try:
 
-        payloadOut = {
+        _payloadOut = {
             "temperature": temp,
             "humidity": humidity}
-        OutState = state_topic[count]
-        print('Updating {0} {1}'.format(OutState,json.dumps(payloadOut) ) )
-        (result1,mid) = client.publish(OutState, json.dumps(payloadOut), 1, True)
+        _OutState = state_topic[count]
+        print('Updating {0} {1}'.format(_OutState,json.dumps(_payloadOut) ) )
+        (_result1,mid) = client.publish(_OutState, json.dumps(_payloadOut), 1, True)
 
-        currentdate = time.strftime('%Y-%m-%d %H:%M:%S')
-        print('Date Time:   {0}'.format(currentdate))
-        print('MQTT Update result {0}'.format(result1))
-
-        if result1 == 1:
+        _currentdate = time.strftime('%Y-%m-%d %H:%M:%S')
+        print('Date Time:   {0}'.format(_currentdate))
+        print('MQTT Update result {0}'.format(_result1))
+        if _result1 == 1:
             raise ValueError('Result message from MQTT was not 0')
 
     except Exception as _e:
@@ -174,6 +175,7 @@ def mqttSend():
         time.sleep(2)
         client.loop_stop()
         client.disconnect()
+        client.unsubscribe(disable_pellet_topic)
         time.sleep(1)
         mqttConnect()
         pass
@@ -186,6 +188,7 @@ def mqttConnect():
     global USER
     global PWD
     global LWT
+    global disable_pellet_topic
     global CONFIGH_TH1
     global CONFIGT_TH1
     global CONFIGH_TH2
@@ -202,6 +205,7 @@ def mqttConnect():
     global payload_W14config
     global payload_TC5config
     global payload_TC6config
+
     print('Connecting to MQTT on {0} {1}'.format(HOST,PORT))
     client.connect(HOST, PORT, keepalive=60)
     client.disable_logger()  # Saves wear on SD card Memory.  Remove as needed for troubleshooting
@@ -216,6 +220,28 @@ def mqttConnect():
     client.publish(CONFIG_W14, json.dumps(payload_W14config), 1, True)
     client.publish(CONFIG_TC5, json.dumps(payload_TC5config), 1, True)
     client.publish(CONFIG_TC6, json.dumps(payload_TC6config), 1, True)
+
+    client.subscribe(disable_pellet_topic, 2) #subscribe to the disable pellet feed topic
+    client.on_message=on_message #attach function to callback
+
+# MQTT message callback & Write GPIO to disable/enable pellet feed
+def on_message(_client, _userdata, _message):
+    try:
+        _result = int(_message.payload.decode('utf-8')) 
+        # Set the GPIO pin to disable or enable the pellet feed
+        if  isinstance(_result, int):
+            disablePelletFeed(_result)
+        else:
+            disablePelletFeed(0)
+
+    except RuntimeError as _e:
+        # Missing data in the subscribed topic
+        print('Subscriber error: ' + str(_e.args[0]))
+        print('message received: ' + str(_result))
+        print('message topic=',_message.topic)
+        print('message qos=',_message.qos)
+        print('message retain flag=',_message.retain)
+        pass
 
 # set initial temp/humid values
 temp = 0.0
@@ -245,11 +271,13 @@ PORT = MYs["MAIN"]["PORT"]
 USER = MYs["MAIN"]["USER"]
 PWD = MYs["MAIN"]["PWD"]
 AREA = MYs["MAIN"]["AREA"]
+DIS_PELLET = MYs["MAIN"]["DIS_PELLET"]
 
 # Pulling the unique MAC SN section address using uuid and getnode() function 
 DEVICE_ID = (hex(uuid.getnode())[-6:]).upper()
 
 TOPIC = "homeassistant/sensor/"
+BSTOPIC = "homeassistant/binary_sensor/"
 
 NAMED = MYs["MAIN"]["DEVICE_NAME"]
 D_ID = DEVICE_ID + '_' + NAMED
@@ -307,8 +335,12 @@ TC6_STATE = TOPIC + TC6_ID + '/state'
 list = [999, PIN_TH1, PIN_TH2, ADDR_W13, ADDR_W14, SEN_TC5, SEN_TC6, 999, 999 ]
 
 # These are the STATE Topics
-state_topic = ["", TH1_STATE, TH2_STATE, W13_STATE, W14_STATE, TC5_STATE, TC6_STATE, "", "" ]
+state_topic = [DIS_PELLET, TH1_STATE, TH2_STATE, W13_STATE, W14_STATE, TC5_STATE, TC6_STATE, "", "" ]
 
+# Create the disable pellets topic
+disable_pellet_topic = BSTOPIC + state_topic[0]
+
+# Create the MQTT Discovery payloads
 payloadH_TH1config = {
     "name": NAMEH_TH1,
     "stat_t": TH1_STATE,
