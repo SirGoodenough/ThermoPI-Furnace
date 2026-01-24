@@ -22,8 +22,50 @@ import random
 with open("/home/|user|/.ThermoPI/ThermoPI-Furnace/MYsecrets.yaml", "r") as ymlfile:
     MYs = yaml.safe_load(ymlfile)
 
-dht_device1 = adafruit_dht.DHT22(board.D4)
-dht_device2 = adafruit_dht.DHT22(board.D17)
+# Subroutine to look up temp/humid sensors
+#  Thanks to https://pimylifeup.com/raspberry-pi-humidity-sensor-dht22/
+#   for help with this section.
+def tempHumid():
+    global list
+    global count
+    global temp
+    global humidity
+
+    _tempC = 0.0
+    _humidityI = 0.0
+    try:
+        # This section looks for a 4 to pick the first sensor,
+        #  then anything else picks the second sensor.
+        # If you are changing this, you would need to change the
+        #  loop and add more devices in the top variables.
+
+        if list[count] == 4:
+            time.sleep(LOOP / 10)  # Settling time
+            _humidityI = dht_device1.humidity
+            time.sleep(LOOP / 50)  # Settling time
+            _tempC = dht_device1.temperature
+        else:
+            time.sleep(LOOP / 10)  # Settling time
+            _humidityI = dht_device2.humidity
+            time.sleep(LOOP / 50)  # Settling time
+            _tempC = dht_device2.temperature
+            return
+    except RuntimeError as _e:
+        # Errors happen fairly often, DHT's are hard to read, just try again
+        print('DHT reading error: ' + str(_e.args[0]))
+        pass
+    # Skip to the next reading if a valid measurement couldn't be taken.
+    # This might happen if the CPU is under a lot of load and the sensor
+    # can't be reliably read (timing is critical to read the sensor).
+
+    if _humidityI is None or _humidityI > 100.0 or _tempC is None or _tempC > 150.0:
+        print('bad reading {0} {1}'.format(_tempC, _humidityI))
+        return
+
+    temp = round((9.0/5.0 * _tempC + 32.0), 1)  # Conversion to F & round to .1
+    humidity = round(_humidityI, 1)             # Round to .1
+        # Use while Troubleshooting...
+    # print('Temp: {0:0.1f}F Humd: {1:0.1f}%'.format(temp, humidity))
 
 # Subroutine look up 1 Wire temp(s)
 def W1():
@@ -86,56 +128,16 @@ def thermocouple():
         # Done
         temp = _tF
 
-# Subroutine to look up temp/humid sensors
-#  Thanks to https://pimylifeup.com/raspberry-pi-humidity-sensor-dht22/
-#   for help with this section.
-def tempHumid():
-    global list
-    global count
-    global temp
-    global humidity
+# subroutine to set the pellet feed on-off
+def disablePelletFeed(_state):
+    global pi
 
-    _tempC = 0.0
-    _humidityI = 0.0
-    try:
-        # This section looks for a 4 to pick the first sensor,
-        #  then anything else picks the second sensor.
-        # If you are changing this, you would need to change the
-        #  loop and add more devices in the top variables.
-
-        if list[count] == 4:
-            time.sleep(LOOP / 10)  # Settling time
-            _humidityI = dht_device1.humidity
-            time.sleep(LOOP / 50)  # Settling time
-            _tempC = dht_device1.temperature
-        else:
-            time.sleep(LOOP / 10)  # Settling time
-            _humidityI = dht_device2.humidity
-            time.sleep(LOOP / 50)  # Settling time
-            _tempC = dht_device2.temperature
-            return
-    except RuntimeError as _e:
-        # Errors happen fairly often, DHT's are hard to read, just try again
-        print('DHT reading error: ' + str(_e.args[0]))
-        client.publish(LWT, 'Offline', 0, True)
-        time.sleep(2)
-        client.loop_stop()
-        client.disconnect()
-        time.sleep(1)
-        mqttConnect()
-        pass
-    # Skip to the next reading if a valid measurement couldn't be taken.
-    # This might happen if the CPU is under a lot of load and the sensor
-    # can't be reliably read (timing is critical to read the sensor).
-
-    if _humidityI is None or _humidityI > 100.0 or _tempC is None or _tempC > 150.0:
-        print('bad reading {0} {1}'.format(_tempC, _humidityI))
-        return
-
-    temp = round((9.0/5.0 * _tempC + 32.0), 1)  # Conversion to F & round to .1
-    humidity = round(_humidityI, 1)             # Round to .1
-        # Use while Troubleshooting...
-    # print('Temp: {0:0.1f}F Humd: {1:0.1f}%'.format(temp, humidity))
+    # This operates a NC relay contact,
+    #   default (off) is to allow normal operation
+    if _state == 1:
+        pi.write(24, 1)  # Turn OFF the pellet feed
+    else:
+        pi.write(24, 0)  # Turn ON the pellet feed to internal normal operation
 
 # Subroutine to send results to MQTT
 def mqttSend():
@@ -218,13 +220,23 @@ def mqttConnect():
 # set initial temp/humid values
 temp = 0.0
 humidity = 0.0
+
 # set loop counter
 count = 0
+
 # Get the library for the thermocouples
 pi = pigpio.pi()
+
 # Check the library connection
 if not pi.connected:
     exit(0)
+
+# Ensure pellet feed is ON at start
+disablePelletFeed(0)
+
+# Create the DHT device, with data pin connected to: GPIO4 and GPIO17
+dht_device1 = adafruit_dht.DHT22(board.D4)
+dht_device2 = adafruit_dht.DHT22(board.D17)
 
 # Read parameters from MYsecrets.yaml
 LOOP = MYs["MAIN"]["LOOP"]
@@ -530,6 +542,7 @@ try:
         time.sleep(LOOP)
 
 except KeyboardInterrupt:
+    disablePelletFeed(0)  # Ensure pellet feed is ON at interrupt
     print(' Keyboard Interrupt. Closing MQTT.')
     client.publish(LWT, 'Offline', 1, True)
     time.sleep(1)
