@@ -45,15 +45,15 @@ def tempHumid():
         #  loop and add more devices in the top variables.
 
         if list[count] == 4:
-            time.sleep(LOOP / 10)  # Settling time
-            _humidityI = dht_device1.humidity
-            time.sleep(LOOP / 50)  # Settling time
+            time.sleep(LOOP / 12)  # Settling time
             _tempC = dht_device1.temperature
+            time.sleep(LOOP / 12)  # Settling time
+            _humidityI = dht_device1.humidity
         else:
-            time.sleep(LOOP / 10)  # Settling time
-            _humidityI = dht_device2.humidity
-            time.sleep(LOOP / 50)  # Settling time
+            time.sleep(LOOP / 12)  # Settling time
             _tempC = dht_device2.temperature
+            time.sleep(LOOP / 12)  # Settling time
+            _humidityI = dht_device2.humidity
             return
     except RuntimeError as _e:
         # Errors happen fairly often, DHT's are hard to read, just try again
@@ -70,7 +70,7 @@ def tempHumid():
     temp = round((9.0/5.0 * _tempC + 32.0), 1)  # Conversion to F & round to .1
     humidity = round(_humidityI, 1)             # Round to .1
     if verbose: # Troubleshooting print
-        print('DHT Temp: {0:0.1f}F Humd: {1:0.1f}%'.format(temp, humidity))
+        print('DHT Temp: {0:0.1f} F Humd: {1:0.1f} %'.format(temp, humidity))
 
 # Subroutine look up 1 Wire temp(s)
 def W1():
@@ -93,7 +93,7 @@ def W1():
     # Conversion to F & round to .1
     _tF = round((9.0/5.0 * _tempC + 32.0), 1)       # Round to .1
     if verbose: # Troubleshooting print
-        print('1-Wire Temp: {0:0.1f}F'.format(_tF))
+        print('1-Wire Temp: {0:0.1f} F'.format(_tF))
     # Done
     temp = _tF
 
@@ -125,33 +125,12 @@ def thermocouple():
             # Conversion to F & round to .1
             _tF = round((9.0/5.0 * _tempC + 32.0), 1)
             if verbose: # Troubleshooting print
-                print("{:.2f}".format(_tF))
+                print("Thermocouple Temp: {:.2f} F".format(_tF))
         else:
             print('bad reading {:b}'.format(_word))
             return
         # Done
         temp = _tF
-
-# subroutine to set the pellet feed on-off
-def disablePelletFeed(_state):
-    global pi
-    global client
-    global list
-    global state_topic
-    global PIN_CTL1
-
-    # This operates GPIO24 connected to an NC relay contact,
-    #   default (0) is to allow normal operation
-    #   setting to 1 disables the pellet feed
-    #   setting to >9 is used to force the HA toggle to OFF state
-
-    if _state == 1:
-        pi.write(PIN_CTL1, 1)  # Turn OFF the pellet feed
-    else:
-        pi.write(PIN_CTL1, 0)  # Set the pellet feed to internal normal operation
-
-    if _state > 9:
-        client.publish(state_topic[0], 0, 1, True) # Ensure HA Toggle matches relay state
 
 # Subroutine to send results to MQTT
 def mqttSend():
@@ -161,7 +140,6 @@ def mqttSend():
     global count
     global state_topic
     global LWT
-    global BSLWT
 
     if temp == 0.0:
         return
@@ -187,10 +165,10 @@ def mqttSend():
         # Error appending data, most likely because credentials are stale.
         #  disconnect and re-connect...
         print('MQTT error, trying re-connect: ' + str(_e))
-        client.publish(LWT, 'Offline', 1, True)
-        client.publish(BSLWT, 'Offline', 1, True)
         client.loop_stop()
         client.unsubscribe(state_topic[0])
+        time.sleep(2)
+        client.publish(LWT, 'Offline', 1, True)
         client.disconnect()
         time.sleep(2)
         mqttConnect()
@@ -205,7 +183,6 @@ def mqttConnect():
     global USER
     global PWD
     global LWT
-    global BSLWT
     global CONFIGH_TH1
     global CONFIGT_TH1
     global CONFIGH_TH2
@@ -226,9 +203,10 @@ def mqttConnect():
     global payload_CTL1config
 
     print('Connecting to MQTT on {0} {1}'.format(HOST,PORT))
-    client.connect(HOST, PORT, keepalive=60)
     client.disable_logger()  # Saves wear on SD card Memory.  Remove as needed for troubleshooting
     client.username_pw_set(USER, PWD) # deactivate if not needed
+    client.on_message=on_message #attach function to callback
+    client.connect(HOST, PORT, keepalive=60)
     client.loop_start()
     client.publish(LWT, "Online", 1, True)
     client.publish(CONFIGH_TH1, json.dumps(payloadH_TH1config), 1, True)
@@ -240,13 +218,35 @@ def mqttConnect():
     client.publish(CONFIG_TC5, json.dumps(payload_TC5config), 1, True)
     client.publish(CONFIG_TC6, json.dumps(payload_TC6config), 1, True)
 
-    client.publish(BSLWT, "Online", 1, True)
     client.publish(CONFIG_CTL1, json.dumps(payload_CTL1config), 1, True)
     client.subscribe(state_topic[0], 2) #subscribe to the disable pellet feed topic
-    client.on_message=on_message #attach function to callback
+
+# subroutine to set the pellet feed on-off
+def disablePelletFeed(_state):
+    global pi
+    global client
+    global state_topic
+    global PIN_CTL1
+
+    # This operates GPIO(PIN_CTL1) connected to an NC relay contact,
+    #   default (0) is to allow normal operation.
+    #   setting to 1 disables the pellet feed.
+    #   setting to >9 is used to force the HA toggle OFF in addition to GPIO off.
+
+    if _state == 1:
+        pi.write(PIN_CTL1, 1)  # Turn OFF the pellet feed
+    else:
+        pi.write(PIN_CTL1, 0)  # Set the pellet feed to internal normal operation
+    if verbose: # Troubleshooting print
+        print('GPIO {0} set to {1}'.format(PIN_CTL1, pi.read(PIN_CTL1)))
+
+    if _state > 9:
+        client.publish(state_topic[0], 0, 1, True) # Ensure HA Toggle matches relay state
+        if verbose: # Troubleshooting print
+            print('HA Pellet feed disable state set to OFF')
 
 # MQTT message callback & Write GPIO to disable/enable pellet feed
-def on_message(_client, _userdata, _message):
+def on_message(client, userdata, _message):
     try:
         _result = int(_message.payload.decode('utf-8')) 
 
@@ -271,24 +271,6 @@ def on_message(_client, _userdata, _message):
         print('message retain flag=',_message.retain)
         pass
 
-# set initial temp/humid values
-temp = 0.0
-humidity = 0.0
-
-# set loop counter
-count = 0
-
-# Get the library for the thermocouples
-pi = pigpio.pi()
-
-# Check the library connection
-if not pi.connected:
-    exit(0)
-
-# Create the DHT device, with data pin connected to: GPIO4 and GPIO17
-dht_device1 = adafruit_dht.DHT22(board.D4)
-dht_device2 = adafruit_dht.DHT22(board.D17)
-
 # Read parameters from MYsecrets.yaml
 LOOP = MYs["MAIN"]["LOOP"]
 HOST = MYs["MAIN"]["HOST"]
@@ -303,6 +285,7 @@ if verbose: # Troubleshooting print
     print("USER = %s" % USER)
     print("PWD = %s" % PWD)
     print("AREA = %s" % AREA)
+    print("===============================")
 
 # Pulling the unique MAC SN section address using uuid and getnode() function 
 DEVICE_ID = (hex(uuid.getnode())[-6:]).upper()
@@ -313,7 +296,6 @@ BSTOPIC = "homeassistant/binary_sensor/"
 NAMED = MYs["MAIN"]["DEVICE_NAME"]
 D_ID = DEVICE_ID + '_' + NAMED
 LWT = TOPIC + D_ID + '/lwt'
-BSLWT = BSTOPIC + D_ID + '/lwt'
 if verbose: # Troubleshooting print
     print("DEVICE_ID = %s" % DEVICE_ID)
     print("TOPIC = %s" % TOPIC)
@@ -321,7 +303,7 @@ if verbose: # Troubleshooting print
     print("NAMED = %s" % NAMED)
     print("D_ID = %s" % D_ID)
     print("LWT = %s" % LWT)
-    print("BSLWT = %s" % BSLWT)
+    print("===============================")
 
 # Create MQTT client
 client_id = f'{D_ID}-mqtt-{random.randint(0, 1000)}'
@@ -329,8 +311,9 @@ client = mqtt.Client(client_id)
 if verbose: # Troubleshooting print
     print("client_id = %s" % client_id)
     print("client = %s" % client)
+    print("===============================")
 
-PIN_TH1 = MYs["TEMP_HUMID"]["PIN_TH1"]
+PIN_TH1 = int(MYs["TEMP_HUMID"]["PIN_TH1"])
 NAMEH_TH1 = MYs["TEMP_HUMID"]["NAMEH_TH1"]
 H_TH1_ID =  DEVICE_ID + '_' + MYs["TEMP_HUMID"]["H_TH1_ID"]
 CONFIGH_TH1 = TOPIC + H_TH1_ID + '/config'
@@ -341,6 +324,7 @@ if verbose: # Troubleshooting print
     print("H_TH1_ID = %s" % H_TH1_ID)
     print("CONFIGH_TH1 = %s" % CONFIGH_TH1)
     print("TH1_STATE = %s" % TH1_STATE)
+    print("===============================")
 
 NAMET_TH1 = MYs["TEMP_HUMID"]["NAMET_TH1"]
 T_TH1_ID = DEVICE_ID + '_' + MYs["TEMP_HUMID"]["T_TH1_ID"]
@@ -349,8 +333,9 @@ if verbose: # Troubleshooting print
     print("NAMET_TH1 = %s" % NAMET_TH1)
     print("T_TH1_ID = %s" % T_TH1_ID)
     print("CONFIG_T_TH1 = %s" % CONFIGT_TH1)
+    print("===============================")
 
-PIN_TH2 = MYs["TEMP_HUMID"]["PIN_TH2"]
+PIN_TH2 = int(MYs["TEMP_HUMID"]["PIN_TH2"])
 NAMEH_TH2 = MYs["TEMP_HUMID"]["NAMEH_TH2"]
 H_TH2_ID =  DEVICE_ID + '_' + MYs["TEMP_HUMID"]["H_TH2_ID"]
 CONFIGH_TH2 = TOPIC + H_TH2_ID + '/config'
@@ -361,6 +346,7 @@ if verbose: # Troubleshooting print
     print("H_TH2_ID = %s" % H_TH2_ID)
     print("CONFIGH_TH2 = %s" % CONFIGH_TH2)
     print("TH2_STATE = %s" % TH2_STATE)
+    print("===============================")
 
 NAMET_TH2 = MYs["TEMP_HUMID"]["NAMET_TH2"]
 T_TH2_ID = DEVICE_ID + '_' + MYs["TEMP_HUMID"]["T_TH2_ID"]
@@ -369,6 +355,7 @@ if verbose: # Troubleshooting print
     print("NAMET_TH2 = %s" % NAMET_TH2)
     print("T_TH2_ID = %s" % T_TH2_ID)
     print("CONFIG_T_TH2 = %s" % CONFIGT_TH2)
+    print("===============================")
 
 ADDR_W13 = MYs["W1"]["ADDR_W13"]
 NAME_W13 = MYs["W1"]["NAME_W13"]
@@ -381,6 +368,7 @@ if verbose: # Troubleshooting print
     print("W13_ID = %s" % W13_ID)
     print("CONFIG_W13 = %s" % CONFIG_W13)
     print("W13_STATE = %s" % W13_STATE)
+    print("===============================")
 
 ADDR_W14 = MYs["W1"]["ADDR_W14"]
 NAME_W14 = MYs["W1"]["NAME_W14"]
@@ -393,8 +381,9 @@ if verbose: # Troubleshooting print
     print("W14_ID = %s" % W14_ID)
     print("CONFIG_W14 = %s" % CONFIG_W14)
     print("W14_STATE = %s" % W14_STATE)
+    print("===============================")
 
-SEN_TC5 = MYs["THERMOCOUPLE"]["SEN_TC5"]
+SEN_TC5 = int(MYs["THERMOCOUPLE"]["SEN_TC5"])
 NAME_TC5 = MYs["THERMOCOUPLE"]["NAME_TC5"]
 TC5_ID =  DEVICE_ID + '_' + MYs["THERMOCOUPLE"]["TC5_ID"]
 CONFIG_TC5 = TOPIC + TC5_ID + '/config'
@@ -405,8 +394,9 @@ if verbose: # Troubleshooting print
     print("TC5_ID = %s" % TC5_ID)
     print("CONFIG_TC5 = %s" % CONFIG_TC5)
     print("TC5_STATE = %s" % TC5_STATE)
+    print("===============================")
 
-SEN_TC6 = MYs["THERMOCOUPLE"]["SEN_TC6"]
+SEN_TC6 = int(MYs["THERMOCOUPLE"]["SEN_TC6"])
 NAME_TC6 = MYs["THERMOCOUPLE"]["NAME_TC6"]
 TC6_ID =  DEVICE_ID + '_' + MYs["THERMOCOUPLE"]["TC6_ID"]
 CONFIG_TC6 = TOPIC + TC6_ID + '/config'
@@ -417,9 +407,10 @@ if verbose: # Troubleshooting print
     print("TC6_ID = %s" % TC6_ID)
     print("CONFIG_TC6 = %s" % CONFIG_TC6)
     print("TC6_STATE = %s" % TC6_STATE)
+    print("===============================")
 
 NAME_CTL1 = MYs["ON_OFF"]["NAME_CTL1"]
-CTL1_ID = MYs["ON_OFF"]["CTL1_ID"]
+CTL1_ID = DEVICE_ID + '_' +  MYs["ON_OFF"]["CTL1_ID"]
 PIN_CTL1 = int(MYs["ON_OFF"]["PIN_CTL1"])
 CONFIG_CTL1 = BSTOPIC + CTL1_ID + '/config'
 CTL1_STATE = BSTOPIC + CTL1_ID + '/state'
@@ -429,12 +420,17 @@ if verbose: # Troubleshooting print
     print("PIN_CTL1 = %s" % PIN_CTL1)
     print("CONFIG_CTL1 = %s" % CONFIG_CTL1)
     print("CTL1_STATE = %s" % CTL1_STATE)
+    print("===============================")
 
 # These are the GPIO's / SP ports / s/ns used for the temp/humid sensors.
-list = [999, PIN_TH1, PIN_TH2, ADDR_W13, ADDR_W14, SEN_TC5, SEN_TC6, 999, 999 ]
-
+list = [PIN_CTL1, PIN_TH1, PIN_TH2, ADDR_W13, ADDR_W14, SEN_TC5, SEN_TC6, 999, 999 ]
 # These are the STATE Topics
 state_topic = [CTL1_STATE, TH1_STATE, TH2_STATE, W13_STATE, W14_STATE, TC5_STATE, TC6_STATE, "", "" ]
+if verbose: # Troubleshooting print
+    print("list = %s" % list)
+    print()
+    print("state_topic = %s" % state_topic)
+    print("===============================")
 
 # Create the MQTT Discovery payloads
 payloadH_TH1config = {
@@ -648,7 +644,7 @@ payload_TC6config = {
 payload_CTL1config = {
     "name": NAME_CTL1,
     "stat_t": CTL1_STATE,
-    "avty_t": BSLWT,
+    "avty_t": LWT,
     "pl_avail": "Online",
     "pl_not_avail": "Offline",
     "uniq_id": CTL1_ID,
@@ -669,12 +665,32 @@ payload_CTL1config = {
     "frc_upd": False
 }
 
-    #Log Message to start
+# set initial temp/humid values
+temp = 0.0
+humidity = 0.0
+
+# set loop counter
+count = 0
+
+# Create the DHT device, with data pin connected to: GPIO4 and GPIO17
+dht_device1 = adafruit_dht.DHT22(board.D4)
+dht_device2 = adafruit_dht.DHT22(board.D17)
+
+# Initialize pigpio library
+pi = pigpio.pi()
+if not pi.connected:
+    exit(0)
+pi.set_mode(PIN_CTL1, pigpio.OUTPUT)  # Set to output mode
+pi.set_pull_up_down(PIN_CTL1, pigpio.PUD_DOWN)  # Set the pull down resistor
+
+disablePelletFeed(10) # Ensure pellet feed is ON at start
+
+# Log Message to start
 print('Logging {0} sensor measurements every {1} seconds.'.format(D_ID, LOOP))
 print('Press Ctrl-C to quit.')
+
+# Connect to MQTT
 mqttConnect()
-    # Ensure pellet feed is ON at start
-disablePelletFeed(0)
 
 # Main loop reading and sending data
 try:
@@ -699,12 +715,12 @@ try:
 
 except KeyboardInterrupt:
     print(' Keyboard Interrupt. Closing MQTT.')
-    client.publish(LWT, 'Offline', 1, True)
-    client.publish(BSLWT, 'Offline', 1, True)
     client.loop_stop()
     client.unsubscribe(state_topic[0])
     disablePelletFeed(10)  # Ensure pellet feed is set to normal at interrupt
     time.sleep(2)
+    client.publish(LWT, 'Offline', 1, True)
+    time.sleep(1)
     client.disconnect()
     sys.exit()
 
