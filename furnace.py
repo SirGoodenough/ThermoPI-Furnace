@@ -12,17 +12,30 @@ import json
 import uuid
 import random
 
-#  Get the parameter file
-# ########################
-#  ######################  The PATH below must be edited to match where the
-#   ####################            MYsecrets.yaml file lives!!!!
-#       ###########
-#          ####
-#           ##
-with open("/home/|user|/.ThermoPI/ThermoPI-Furnace/MYsecrets.yaml", "r") as ymlfile:
-    MYs = yaml.safe_load(ymlfile)
+# 2 Command line arguments available: 
+#  * {REQUIRED} Text Path pointing to the location of MYsecrets.yaml.
+#     The last Text argument (not verbose) found will be attempted to be used as the path.
+#     Default is /home/|user|/.ThermoPI/ThermoPI-Furnace/MYsecrets.yaml
+#      where you change |user| to your user name.
+#  * {Optional} The word "verbose or --verbose" turns on verbose troubleshoot mode.
 
-verbose = False  # Set to True for more print info
+argc = len(sys.argv) # get number of command line arguments
+
+if argc < 2:
+    print("Need to specify the path to the MYsecrets.yaml as argument")
+    print(" in the shell script starting the venv and calling furnace.py")
+    print(" similar to: /home/|user|/.ThermoPI/ThermoPI-Furnace/MYsecrets.yaml")
+    exit()
+
+verbose = False  # Set False as default quiet mode if no CL argument for it.
+
+for i in range(1, argc): # ignore first argument which is command name
+    if (sys.argv[i] == "verbose") or (sys.argv[i] == "--verbose"):
+        verbose = True
+    else:
+        # Assume this is the path to the MYsecrets.yaml file (last one wins)
+        with open(sys.argv[i], "r") as ymlfile:
+            MYs = yaml.safe_load(ymlfile)
 
 # Subroutine to look up temp/humid sensors
 #  Thanks to https://pimylifeup.com/raspberry-pi-humidity-sensor-dht22/
