@@ -1,8 +1,7 @@
 #!/usr/bin/python3
 
 import pigpio  # https://abyz.me.uk/rpi/pigpio/index.html
-import adafruit_dht
-import board
+import DHT     # Code included from DHT.py and pigpio library
 from w1thermsensor import W1ThermSensor, Sensor
 import paho.mqtt.client as mqtt
 import sys
@@ -38,52 +37,45 @@ for i in range(1, argc): # ignore first argument which is command name
             MYs = yaml.safe_load(ymlfile)
 
 # Subroutine to look up temp/humid sensors
-#  Thanks to https://pimylifeup.com/raspberry-pi-humidity-sensor-dht22/
-#   for help with this section.
 def tempHumid():
+    global pi
     global list
     global count
     global temp
     global humidity
-    global dht_device1
-    global dht_device2
-    global LOOP
-
-    _tempC = 0.0
-    _humidityI = 0.0
     try:
-        # This section looks for a 4 to pick the first sensor,
-        #  then anything else picks the second sensor.
-        # If you are changing this, you would need to change the
-        #  loop and add more devices in the top variables.
+        _d = DHT.sensor(pi, list[count]).read()
+        _status = _d[2]
+        _tempC = _d[3]
+        _humidityI = _d[4]
+        _wStatus = ("DHT_GOOD:0", "DHT_BAD_CHECKSUM:1", "DHT_BAD_DATA:2", "DHT_TIMEOUT:3")
+        """
+            The returned data (_d) is a tuple of timestamp, GPIO, status,
+            temperature, and humidity.
 
-        if list[count] == 4:
-            time.sleep(LOOP / 12)  # Settling time
-            _tempC = dht_device1.temperature
-            time.sleep(LOOP / 12)  # Settling time
-            _humidityI = dht_device1.humidity
-        else:
-            time.sleep(LOOP / 12)  # Settling time
-            _tempC = dht_device2.temperature
-            time.sleep(LOOP / 12)  # Settling time
-            _humidityI = dht_device2.humidity
+            The status will be one of:
+            0 DHT_GOOD (a good reading)
+            1 DHT_BAD_CHECKSUM (received data failed checksum check)
+            2 DHT_BAD_DATA (data received had one or more invalid values)
+            3 DHT_TIMEOUT (no response from sensor)
+        """
+        if _status != 0 or _humidityI is None or _humidityI > 100.0 or _tempC is None or _tempC > 150.0 or _tempC < 4.44:
+            print('Status: {0} Bad Reading {1} {2}'.format(_wStatus[_status], _tempC, _humidityI))
             return
+
+        temp = round((9.0/5.0 * _tempC + 32.0), 1)  # Conversion to F & round to .1
+        humidity = round(_humidityI, 1)             # Round to .1
+
+        if verbose: # Troubleshooting print
+            print("{:.3f} {:2d} {} {:3.1f} F {:3.1f} %".format(_d[0], _d[1], _wStatus[_d[2]], temp, humidity))
     except RuntimeError as _e:
         # Errors happen fairly often, DHT's are hard to read, just try again
         print('DHT reading error: ' + str(_e.args[0]))
+        print('Status: {0} Bad Reading {1} {2}'.format(_wStatus[_status], _tempC, _humidityI))
         pass
-    # Skip to the next reading if a valid measurement couldn't be taken.
-    # This might happen if the CPU is under a lot of load and the sensor
-    # can't be reliably read (timing is critical to read the sensor).
-
-    if _humidityI is None or _humidityI > 100.0 or _tempC is None or _tempC > 150.0 or _tempC < 4.44:
-        print('bad reading {0} {1}'.format(_tempC, _humidityI))
-        return
-
-    temp = round((9.0/5.0 * _tempC + 32.0), 1)  # Conversion to F & round to .1
-    humidity = round(_humidityI, 1)             # Round to .1
-    if verbose: # Troubleshooting print
-        print('DHT Temp: {0:0.1f} F Humd: {1:0.1f} %'.format(temp, humidity))
+        # Skip to the next reading if a valid measurement couldn't be taken.
+        # This might happen if the CPU is under a lot of load and the sensor
+        # can't be reliably read (timing is critical to read the sensor).
 
 # Subroutine look up 1 Wire temp(s)
 def W1():
@@ -145,6 +137,30 @@ def thermocouple():
         # Done
         temp = _tF
 
+# subroutine to set the pellet feed on-off
+def disablePelletFeed(_state):
+    global pi
+    global client
+    global state_topic
+    global PIN_CTL1
+
+    # This operates GPIO(PIN_CTL1) connected to an NC relay contact,
+    #   default (0) is to allow normal operation.
+    #   setting to 1 disables the pellet feed.
+    #   setting to 10 is used to force the HA toggle OFF in addition to GPIO off.
+
+    if _state == 1:
+        pi.write(PIN_CTL1, 1)  # Turn OFF the pellet feed
+    elif _state == 10:
+        client.publish(state_topic[0], 0, 1, True) # Ensure HA Toggle matches relay state
+        if verbose: # Troubleshooting print
+            print('HA Pellet feed disable state set to OFF')
+    else:
+        pi.write(PIN_CTL1, 0)  # Set the pellet feed to internal normal operation
+
+    if verbose: # Troubleshooting print
+        print('GPIO {0} set to {1}'.format(PIN_CTL1, pi.read(PIN_CTL1)))
+
 # Subroutine to send results to MQTT
 def mqttSend():
     global temp
@@ -188,6 +204,7 @@ def mqttSend():
         pass
 
 # Subroutine to connect to MQTT
+#  Thanks to help from http://www.steves-internet-guide.com/into-mqtt-python-client/
 def mqttConnect():
     global client
     global state_topic
@@ -234,32 +251,9 @@ def mqttConnect():
     client.publish(CONFIG_CTL1, json.dumps(payload_CTL1config), 1, True)
     client.subscribe(state_topic[0], 2) #subscribe to the disable pellet feed topic
 
-# subroutine to set the pellet feed on-off
-def disablePelletFeed(_state):
-    global pi
-    global client
-    global state_topic
-    global PIN_CTL1
-
-    # This operates GPIO(PIN_CTL1) connected to an NC relay contact,
-    #   default (0) is to allow normal operation.
-    #   setting to 1 disables the pellet feed.
-    #   setting to >9 is used to force the HA toggle OFF in addition to GPIO off.
-
-    if _state == 1:
-        pi.write(PIN_CTL1, 1)  # Turn OFF the pellet feed
-    else:
-        pi.write(PIN_CTL1, 0)  # Set the pellet feed to internal normal operation
-    if verbose: # Troubleshooting print
-        print('GPIO {0} set to {1}'.format(PIN_CTL1, pi.read(PIN_CTL1)))
-
-    if _state > 9:
-        client.publish(state_topic[0], 0, 1, True) # Ensure HA Toggle matches relay state
-        if verbose: # Troubleshooting print
-            print('HA Pellet feed disable state set to OFF')
-
 # MQTT message callback & Write GPIO to disable/enable pellet feed
-def on_message(client, userdata, _message):
+#  Thanks to help from http://www.steves-internet-guide.com/into-mqtt-python-client/
+def on_message(_client, _userdata, _message):
     try:
         _result = int(_message.payload.decode('utf-8')) 
 
@@ -684,10 +678,6 @@ humidity = 0.0
 
 # set loop counter
 count = 0
-
-# Create the DHT device, with data pin connected to: GPIO4 and GPIO17
-dht_device1 = adafruit_dht.DHT22(board.D4)
-dht_device2 = adafruit_dht.DHT22(board.D17)
 
 # Initialize pigpio library
 pi = pigpio.pi()
