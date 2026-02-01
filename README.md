@@ -6,11 +6,11 @@ Use a Raspberry PI connected to one or more temperature sensors to send the resu
 
 Here is a complete list of all the files that need to be edited to represent your user name an/or your home folder path for this to work. Most of the changes you will be looking for the key ```|user|``` and replace it with your username.
 
-+ furnace.py
 + load-service.sh
 + MYsecrets.yaml (copied & edited from MYsecretsSample.yaml)
 + startThermoPI.sh
 + thermoPIFurnace.service
++ verboseThermoPI.sh
 + all folder permissions in the executable file's path
 
 ## USAGE
@@ -26,7 +26,7 @@ Edit the contents of the new ***MYsecrets.yaml*** to match your MQTT & Home Assi
 If you see this error:
 > FileNotFoundError: [Errno 2] No such file or directory: '/home/|user|/.ThermoPI/ThermoPI-Furnace/MYsecrets.yaml'
 
-You will need to supply the full path to the secrets file in the **Get the parameter file** section of this python code around line 22.
+You will need to supply the full path to the MYsecrets.yaml file in the startThermoPI.sh and verboseThermoPI.sh shell scripts. It is a commandline variable to furnace.py.
 
 This program grabs the 2nd half of the MAC address to use as the device ID. This only works consistently when there is only 1 Ethernet interface configured or you have your multiple interfaces cloned to the same MAC Address. For instance if it boots from WIFI, it will grab that MAC, and if it uses the Ethernet cable or a USB interface, it will grab that MAC. You get my point. This can be avoided by hard coding the DeviceID with the random and unique number of your choice. Also I have not tested this with IP6 addresses. If you have solutions to any of this, please share.
 
@@ -44,17 +44,19 @@ The furnRestart.sh is the script to quickly restart the process if needed during
 
 The startThermoPI.sh shell script starts the venv and run the program inside the venv so that all the requirements are there. Use this if running in a venv.
 
+The verboseThermoPI.sh shell script does the same as startThermoPI.sh but enables verbose mode.
+
 ## Requirements
 
 Program requirements (as written):  (Feel free to fork it & update any obsolete Libraries and dropping me a merge request...)
 
 + Python 3.11 or better
++ [paho-mqtt](https://pypi.org/project/paho-mqtt/) For MQTT broker connection
 + [PyYAML](https://pypi.org/project/PyYAML/) For reading the YAML parameter file
 + [pigpio](https://abyz.me.uk/rpi/pigpio/index.html) For reading the Thermocouples (MAX6675)
+
 + [max6675](https://github.com/tdack/MAX6675) Thermocouple demux code
-+ [W1ThermSensor](https://github.com/timofurrer/w1thermsensor) For 2 wire temp sensors [(DS18B20)](http://www.d3noob.org/2015/02/raspberry-pi-multiple-temperature.html)
-+ [Adafruit_DHT](https://github.com/adafruit/Adafruit_CircuitPython_DHT) For temp / humid sensors (DHT22)
-+ [paho-mqtt](https://pypi.org/project/paho-mqtt/) For MQTT broker connection
++ [DS18B20](https://randomnerdtutorials.com/raspberry-pi-ds18b20-python/) pigpio interface.
 
 **If you have any questions, comments or additions be sure to add an issue and bring them up on my Discord Server:**
 
@@ -93,17 +95,19 @@ These instructions assume you’re running the ThermoPI-Furnace on a Raspberry P
 
     * NOTE: The venv will need to be activated *every* time the python program runs (at boot or restart), so we’ll automate this using a shell script to start the python code. To leave the venv and return to regular command mode, the command is ```deactivate```.
 
-### 3. Update PIP
+### 3. Update PIP  * NOTE: Do this while logged into the venv
 
 ```bash
 python3 -m pip install --upgrade pip setuptools wheel
 ```
 
-### 4. Install the requirements
+### 4. Install the requirements  * NOTE: Do this while logged into the venv
+
+    * NOTE: paho-mqtt is pinned at 1.6.0 because of a config issue I couldn't figure out.
 
 ```bash
 pip3 uninstall paho-mqtt
-pip3 install PyYAML w1thermsensor pigpio adafruit-circuitpython-dht paho-mqtt==1.6.0
+pip3 install PyYAML pigpio paho-mqtt==1.6.0
 ```
 
 ### 5. Install the 1 wire devices
@@ -133,40 +137,39 @@ Then install the 1-wire sensors and make sure they are there.
 ```bash
 sudo modprobe w1-gpio
 sudo modprobe w1-therm
-ls -la /sys/bus/w1/devices
+ls /sys/bus/w1/devices
 ```
 
 You should see something like this with different numbers:
 
 ```text
 
-lrwxrwxrwx 1 root root 0 Jan 17 18:33 28-3c01f0965030 -> ../../../devices/w1_bus_master1/28-3c01f0965030
-lrwxrwxrwx 1 root root 0 Jan 17 18:33 28-60d70d1864ff -> ../../../devices/w1_bus_master1/28-60d70d1864ff
-lrwxrwxrwx 1 root root 0 Jan 17 18:33 w1_bus_master1 -> ../../../devices/w1_bus_master1
+28-3c01f0965030  28-60d70d1864ff  w1_bus_master1
 
 ```
 
-The actual serial number(s) to remember is everything after the '28-'.
+The actual serial number(s) to remember are the '28-xxxxxxxxxxxx'.
 
-### 5. Get the software:
+### 5. Get the software:  * NOTE: Do this while logged into the venv
 
 Change |user| to your user name.
+
 ```bash
 cd /home/|user|/.ThermoPI
 git clone https://github.com/SirGoodenough/ThermoPI-Furnace.git
 cd ThermoPI-Furnace
 ```
 
-### 6. Generate your version of the MYsecrets.yaml
+### 6. Generate your version of the MYsecrets.yaml  * NOTE: Do this while logged into the venv
 
-Based on the MYsecretsSample.yaml as a starting point, make your own.  You will need to have figured out your 1-wire sensor serial numbers and know your MQTT login information to complete this section.
+Based on the MYsecretsSample.yaml as a starting point, make your own.  You will need to have figured out your 1-wire sensor serial numbers, where they are located, and know your MQTT login information to complete this section.
 
 ```bash
 cp MYsecretsSample.yaml MYsecrets.yaml
 nano MYsecrets.yaml
 ```
 
-### 7. Test that everything works
+### 7. Test that everything works  * NOTE: Do this while logged into the venv.
 
 Be sure to change |user| to your user name.
 Troubleshoot as needed.  'MQTT Update result 0' means that part of the loop went well.  After you get it to loop thru a couple of times, use 'ctrl-c' to stop it and continue to next step.
@@ -175,7 +178,7 @@ Troubleshoot as needed.  'MQTT Update result 0' means that part of the loop went
 /usr/bin/python3 /home/|user|/.ThermoPI/ThermoPI-Furnace/startThermoPI.sh
 ```
 
-### 8. Automating Startup at Boot
+### 8. Automating Startup at Boot  * NOTE: Do this while logged into the venv
 
 Long term use of this software will make too many writes to the SD card, filling it up and wearing out the card. Therefore ```> /dev/null 2>&1``` has been added to the ```thermoPIFurnace.service``` file to reduce writes to the SD card. For Troubleshooting you *MAY* want to turn this off temporarily. Just remove those characters from this file and all will be logged. Be sure to turn this on or off as you desire before running this section, or if you change that file re-run this section.
 
@@ -218,7 +221,7 @@ Jan 19 21:54:47 thermopifurn startThermoPI.sh[6269]: /home/|user|/.ThermoPI/Ther
 Jan 19 21:54:47 thermopifurn startThermoPI.sh[6271]: /home/|user|/.ThermoPI/bin/python
 ```
 
-## Verify Installation
+## Verify Installation  * NOTE: Do this while logged into the venv
 
 *   Reboot the Raspberry Pi (`sudo reboot`).
 *   After the reboot, check if the ThermoPI-Furnace script is running using: `sudo systemctl status thermopifurnace.service`.

@@ -2,7 +2,6 @@
 
 import pigpio  # https://abyz.me.uk/rpi/pigpio/index.html
 import DHT     # Code included from DHT.py and pigpio library
-from w1thermsensor import W1ThermSensor, Sensor
 import paho.mqtt.client as mqtt
 import sys
 import time
@@ -10,40 +9,81 @@ import yaml
 import json
 import uuid
 import random
+import glob
+import os
 
-# 2 Command line arguments available: 
-#  * {REQUIRED} Text Path pointing to the location of MYsecrets.yaml.
-#     The last Text argument (not verbose) found will be attempted to be used as the path.
-#     Default is /home/|user|/.ThermoPI/ThermoPI-Furnace/MYsecrets.yaml
-#      where you change |user| to your user name.
-#  * {Optional} The word "verbose or --verbose" turns on verbose troubleshoot mode.
+"""
+2 Command line arguments available:
 
-argc = len(sys.argv) # get number of command line arguments
+  * {REQUIRED} Text Path pointing to the location of MYsecrets.yaml.
+    The last Text argument (that is  != verbose or --verbose) found
+        will be attempted to be used as the path.
+    Default is /home/|user|/.ThermoPI/ThermoPI-Furnace/MYsecrets.yaml
+        where you change |user| to your user name.
+    If the path doesn't exist or is missing the program will crash.
 
-if argc < 2:
+  * {Optional} The word "verbose or --verbose" turns on verbose
+        troubleshoot mode.
+"""
+try:
+    MYs = {}
+    argc = len(sys.argv) # get number of command line arguments
+    verbose = False  # Set False as default quiet mode if no CL argument for it.
+
+    if argc < 2:
+        raise ValueError('Need to specify the path to MYsecrets.yaml')
+
+    for i in range(1, argc): # ignore first argument which is command name
+        if (sys.argv[i] == "verbose") or (sys.argv[i] == "--verbose"):
+            verbose = True
+        else:
+            # Assume this is the path to the MYsecrets.yaml file (last one wins)
+            with open(sys.argv[i], "r") as ymlfile:
+                MYs = yaml.safe_load(ymlfile)
+
+        if len(sys.argv[i]) < 7:
+            raise ValueError('invalid argument {}'.format(sys.argv[i]))
+
+except Exception as _e:
+    print("Error reading MYsecrets.yaml file: " + str(_e))
     print("Need to specify the path to the MYsecrets.yaml as argument")
-    print(" in the shell script starting the venv and calling furnace.py")
+    print(" in startThermoPI.sh starting the venv and calling furnace.py")
     print(" similar to: /home/|user|/.ThermoPI/ThermoPI-Furnace/MYsecrets.yaml")
-    exit()
+    sys.exit(1)
 
-verbose = False  # Set False as default quiet mode if no CL argument for it.
+# Globals
 
-for i in range(1, argc): # ignore first argument which is command name
-    if (sys.argv[i] == "verbose") or (sys.argv[i] == "--verbose"):
-        verbose = True
-    else:
-        # Assume this is the path to the MYsecrets.yaml file (last one wins)
-        with open(sys.argv[i], "r") as ymlfile:
-            MYs = yaml.safe_load(ymlfile)
+# Reading one wire file
+def read_temp_raw(_device_file):
+    _f = open(_device_file, 'r')
+    _lines = _f.readlines()
+    _f.close()
+    return _lines
 
-# Subroutine to look up temp/humid sensors
+# Pulling temp from one wire file
+def read_temp(_device_file):
+    _lines = read_temp_raw(_device_file)
+    while _lines[0].strip()[-3:] != 'YES':
+        time.sleep(0.2)
+        _lines = read_temp_raw(_device_file)
+    _equals_pos = _lines[1].find('t=')
+    if _equals_pos != -1:
+        _temp_string = _lines[1][_equals_pos+2:]
+        _temp_c = float(_temp_string) / 1000.0
+        _temp_f = round((9.0/5.0 * _temp_c + 32.0), 1) # Conversion to F & round to .1
+        return _temp_f, _temp_c
+
+# Subroutine to look up DHT temp/humid sensors
 def tempHumid():
     global pi
     global list
     global count
     global temp
     global humidity
+    global verbose
+
     try:
+            # list[count] is the GPIO number for the DHT sensor
         _d = DHT.sensor(pi, list[count]).read()
         _status = _d[2]
         _tempC = _d[3]
@@ -60,47 +100,73 @@ def tempHumid():
             3 DHT_TIMEOUT (no response from sensor)
         """
         if _status != 0 or _humidityI is None or _humidityI > 100.0 or _tempC is None or _tempC > 150.0 or _tempC < 4.44:
-            print('Status: {0} Bad Reading {1} {2}'.format(_wStatus[_status], _tempC, _humidityI))
-            return
+            raise ValueError('Status error or Bad Value')
 
         temp = round((9.0/5.0 * _tempC + 32.0), 1)  # Conversion to F & round to .1
         humidity = round(_humidityI, 1)             # Round to .1
 
         if verbose: # Troubleshooting print
             print("{:.3f} {:2d} {} {:3.1f} F {:3.1f} %".format(_d[0], _d[1], _wStatus[_d[2]], temp, humidity))
-    except RuntimeError as _e:
+
+    except Exception as _e:
         # Errors happen fairly often, DHT's are hard to read, just try again
         print('DHT reading error: ' + str(_e.args[0]))
         print('Status: {0} Bad Reading {1} {2}'.format(_wStatus[_status], _tempC, _humidityI))
         pass
-        # Skip to the next reading if a valid measurement couldn't be taken.
-        # This might happen if the CPU is under a lot of load and the sensor
-        # can't be reliably read (timing is critical to read the sensor).
+    """
+    # Skip to the next reading if a valid measurement couldn't be taken.
+    # This might happen if the CPU is under a lot of load and the sensor
+    # can't be reliably read (timing is critical to read the sensor).
+    """
 
-# Subroutine look up 1 Wire temp(s)
+"""
+Subroutine look up 1 Wire temp(s)
+    Requires 1 Wire interface to be enabled on Raspberry Pi (see readme) &
+        https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#enabling-1-wire
+    Code derived from the pigpio library examples and
+        https://randomnerdtutorials.com/raspberry-pi-ds18b20-python/
+"""
 def W1():
     global temp
-    global sensor
     global list
     global count
+    global verbose
 
-    _tempC = 0.0
+    _tC = 0.0
     _tF = 0.0
+    _id = str(list[count])
 
-    # sensor = W1ThermSensor()
-    sensor = W1ThermSensor(sensor_type=Sensor.DS18B20, sensor_id=list[count])
+    os.system('modprobe w1-gpio')
+    os.system('modprobe w1-therm')
 
-    # Get the temp
-    _tempC = sensor.get_temperature()
-    # Test the result.  Make sure it is reasonable and not a glitch.
-    if _tempC is None or _tempC > 120.0 or _tempC < 4.44:
-        return
-    # Conversion to F & round to .1
-    _tF = round((9.0/5.0 * _tempC + 32.0), 1)       # Round to .1
-    if verbose: # Troubleshooting print
-        print('1-Wire Temp: {0:0.1f} F'.format(_tF))
-    # Done
-    temp = _tF
+    # Build sensor path
+    _base_dir = '/sys/bus/w1/devices/'
+    _device_folder = glob.glob(_base_dir + _id)[0]
+    _device_file = _device_folder + '/w1_slave'
+
+    try:
+        _tup = read_temp(_device_file)
+        _tF = _tup[0]
+        _tC = _tup[1]
+
+        # Test the result.  Make sure it is reasonable and not a glitch.
+        if _tC is None or _tC > 120.0 or _tC < 4.44:
+            raise ValueError('Bad Value')
+        
+        # Conversion to F & round to .1
+        _tF = round((9.0/5.0 * _tC + 32.0), 1)  # Convert & Round to .1
+        if verbose: # Troubleshooting print
+            print('1-Wire {0}: {1:0.1f} F'.format(_id, _tF))
+
+        # Done
+        temp = _tF
+
+    except Exception as _e:
+        # Errors happen fairly often, just try again
+        print('1 Wire reading error: ' + str(_e.args[0]))
+        print('Device Folder: {0}'.format(_device_folder))
+        print('Bad reading 1-Wire {0}: {1:0.1f} F'.format(_id, _tC))
+        pass
 
 # Subroutine look up thermocouple temps
 def thermocouple():
@@ -108,12 +174,10 @@ def thermocouple():
     global pi
     global list
     global count
+    global verbose
 
-    _tempC = 0.0
     _tF = 0.0
-    _d = 0
-    _c = 0
-    _word = 0
+    _tC = 0.0
 
     # Check the thermocouple(s) on the Serial links.
     _sensor = pi.spi_open(list[count], 1000000, 0)
@@ -123,16 +187,19 @@ def thermocouple():
     if _c == 2:
         _word = (_d[0] << 8) | _d[1]
         if (_word & 0x8006) == 0:  # Bits 15, 2, and 1 should be zero.
-            _tempC = (_word >> 3)/4.0
+            _tC = (_word >> 3)/4.0
+
             # Test the result
-            if _tempC is None or _tempC > 1500.0 or _tempC < 4.44:
+            if _tC is None or _tC > 1500.0 or _tC < 4.44:
                 return
-            # Conversion to F & round to .1
-            _tF = round((9.0/5.0 * _tempC + 32.0), 1)
+
+            _tF = round((9.0/5.0 * _tC + 32.0), 1) # Conversion to F & round to .1
+
             if verbose: # Troubleshooting print
                 print("Thermocouple Temp: {:.2f} F".format(_tF))
         else:
             print('bad reading {:b}'.format(_word))
+            print("Thermocouple Temp: {:.2f} F".format(_tC))
             return
         # Done
         temp = _tF
@@ -142,6 +209,7 @@ def disablePelletFeed(_state):
     global pi
     global client
     global state_topic
+    global verbose
     global PIN_CTL1
 
     # This operates GPIO(PIN_CTL1) connected to an NC relay contact,
@@ -154,12 +222,12 @@ def disablePelletFeed(_state):
     elif _state == 10:
         client.publish(state_topic[0], 0, 1, True) # Ensure HA Toggle matches relay state
         if verbose: # Troubleshooting print
-            print('HA Pellet feed disable state set to OFF')
+            print('==> HA Pellet feed disable state set to OFF')
     else:
         pi.write(PIN_CTL1, 0)  # Set the pellet feed to internal normal operation
 
     if verbose: # Troubleshooting print
-        print('GPIO {0} set to {1}'.format(PIN_CTL1, pi.read(PIN_CTL1)))
+        print('==> GPIO {0} set to {1}'.format(PIN_CTL1, pi.read(PIN_CTL1)))
 
 # Subroutine to send results to MQTT
 def mqttSend():
@@ -168,6 +236,7 @@ def mqttSend():
     global client
     global count
     global state_topic
+    global verbose
     global LWT
 
     if temp == 0.0:
@@ -254,14 +323,16 @@ def mqttConnect():
 # MQTT message callback & Write GPIO to disable/enable pellet feed
 #  Thanks to help from http://www.steves-internet-guide.com/into-mqtt-python-client/
 def on_message(_client, _userdata, _message):
+    global verbose
+
     try:
         _result = int(_message.payload.decode('utf-8')) 
 
         if verbose: # Troubleshooting print
-            print('message received: ' + str(_result))
-            print('message topic=',_message.topic)
-            print('message qos=',_message.qos)
-            print('message retain flag=',_message.retain)
+            print('==> message received: ' + str(_result))
+            print('==> message topic=',_message.topic)
+            print('==> message qos=',_message.qos)
+            print('==> message retain flag=',_message.retain)
 
         # Set the GPIO pin to disable or enable the pellet feed
         if  isinstance(_result, int):
@@ -271,11 +342,11 @@ def on_message(_client, _userdata, _message):
 
     except RuntimeError as _e:
         # Missing data in the subscribed topic
-        print('Subscriber error: ' + str(_e.args[0]))
-        print('message received: ' + str(_result))
-        print('message topic=',_message.topic)
-        print('message qos=',_message.qos)
-        print('message retain flag=',_message.retain)
+        print('==> Subscriber error: ' + str(_e.args[0]))
+        print('==> message received: ' + str(_result))
+        print('==> message topic=',_message.topic)
+        print('==> message qos=',_message.qos)
+        print('==> message retain flag=',_message.retain)
         pass
 
 # Read parameters from MYsecrets.yaml
