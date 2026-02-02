@@ -23,10 +23,7 @@ If you see this error:
 You will need to rename the file ***MYsecretsSample.yaml*** to ***MYsecrets.yaml***.
 Edit the contents of the new ***MYsecrets.yaml*** to match your MQTT & Home Assistant installation and requirements.
 
-If you see this error:
-> FileNotFoundError: [Errno 2] No such file or directory: '/home/|user|/.ThermoPI/ThermoPI-Furnace/MYsecrets.yaml'
-
-You will need to supply the full path to the MYsecrets.yaml file in the startThermoPI.sh and verboseThermoPI.sh shell scripts. It is a commandline variable to furnace.py.
+You will need to supply the full path to the MYsecrets.yaml file in the startThermoPI.sh and verboseThermoPI.sh shell scripts. That path is a commandline input for furnace.py.
 
 This program grabs the 2nd half of the MAC address to use as the device ID. This only works consistently when there is only 1 Ethernet interface configured or you have your multiple interfaces cloned to the same MAC Address. For instance if it boots from WIFI, it will grab that MAC, and if it uses the Ethernet cable or a USB interface, it will grab that MAC. You get my point. This can be avoided by hard coding the DeviceID with the random and unique number of your choice. Also I have not tested this with IP6 addresses. If you have solutions to any of this, please share.
 
@@ -233,7 +230,7 @@ After it's running head to home assistant devices [![Open your Home Assistant in
 
 ![Sample Home Assistant Screen](HA-Screenshot.png)
 
-To control the GPIO pin selectedd look at this blueprint: 
+To control the GPIO pin selected look at this blueprint:
 HA link to download blueprint: [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FSirGoodenough%2FHA_Blueprints%2Fblob%2Fmaster%2FScripts%2Fpellet_disable.yaml)
 
 Direct link to  download Blueprint: ```https://github.com/SirGoodenough/HA_Blueprints/blob/master/Scripts/pellet_disable.yaml```
