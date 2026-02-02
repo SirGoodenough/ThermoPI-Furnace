@@ -233,6 +233,118 @@ After it's running head to home assistant devices [![Open your Home Assistant in
 
 ![Sample Home Assistant Screen](HA-Screenshot.png)
 
+To control the GPIO pin selectedd look at this blueprint: 
+HA link to download blueprint: [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FSirGoodenough%2FHA_Blueprints%2Fblob%2Fmaster%2FScripts%2Fpellet_disable.yaml)
+
+Direct link to  download Blueprint: ```https://github.com/SirGoodenough/HA_Blueprints/blob/master/Scripts/pellet_disable.yaml```
+
+If you want to talk to the GPIO pin without a blueprint, see this code:
+
+```yaml
+#####################################################
+# Pellet Feed Control                               #
+#####################################################
+# Scripts:
+
+pellet_feed_off:
+  alias: disable Pellet Feed
+  sequence:
+    - alias: Make sure fan is off
+      action: mqtt.publish
+      data:
+        topic: 'homeassistant/binary_sensor/107935_pel_stove_disable/state'
+        payload: 0
+
+pellet_feed_on:
+  alias: enable Pellet Feed
+  sequence:
+    - alias: Make sure fan is on
+      action: mqtt.publish
+      data:
+        topic: 'homeassistant/binary_sensor/107935_pel_stove_disable/state'
+        payload: 1
+
+pellet_disable_script:
+  alias: Enable or Disable the Pellet Stove pellet feed
+  trace:
+    stored_traces: 10
+  fields:
+    control:
+      name: Control State
+      description: Set to true to shut off pellets, false to restore normal operation.
+      required: false
+      example: "false"
+      default: false
+      selector:
+        boolean:
+  sequence:
+    - alias: et the state
+      action: mqtt.publish
+      data:
+        topic: 'homeassistant/binary_sensor/107935_pel_stove_disable/state'
+        payload: >
+          {{ iif(control, 1, 0, 0)}}
+# Automation:
+
+- id: 'd13436ed-3fe3-47bc-964e-64205ca82daf'
+  alias: Pellet Stove Limiter
+  description: Stop feeding pellets when the stove is above 500 F
+  triggers:
+  - trigger: numeric_state
+    entity_id:
+    - sensor.furnace_pellet_firebox_temperature
+    for:
+      minutes: 5
+    above: 500
+    id: Hot
+  - trigger: numeric_state
+    entity_id:
+    - sensor.furnace_pellet_firebox_temperature
+    for:
+      minutes: 5
+    below: 490
+    id: Cold
+  - trigger: homeassistant
+    event: start
+    id: HA Start
+  - trigger: homeassistant
+    event: shutdown
+    id: HA Stop
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id:
+        - Hot
+      sequence:
+      - alias: It is Hot so stop feeding fuel
+        action: script.turn_on
+        metadata: {}
+        target:
+          entity_id: script.pellet_feed_enable
+        data: true
+    - conditions:
+      - condition: trigger
+        id:
+        - Cold
+      sequence:
+      - alias: It is cold so back to normal
+        action: script.turn_on
+        metadata: {}
+        target:
+          entity_id: script.pellet_feed_enable
+        data: false
+    default:
+    - alias: Stop interfering if you do not know the state
+      action: script.turn_on
+      metadata: {}
+      target:
+        entity_id: script.pellet_feed_enable
+      data: false
+  mode: single
+```
+
 ## Schematic
 
 This is roughly the circuit used with this program:
