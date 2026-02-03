@@ -6,13 +6,13 @@ Use a Raspberry PI connected to one or more temperature sensors to send the resu
 
 # ThermoPI-Furnace
 
-This was born before ESPHome was a thing, but the number of sensors and controls at thios point seems a bit more than I would like to depend on an ESP32 for.
+This was born before ESPHome was a thing, but the number of sensors and controls at this point seems a bit more than I would like to depend on an ESP32 for.
 
 I recently adapted this to work with a venv within the newer RasPI operating systems and updated everything to use just the pigpio library eliminating a bunch of unnecessary component loading.
 
 In short there is a couple of thermocouples, Dallas sensors, and DHT22 sensors here along with an MQTT controlled output pin to interface my (oil) fired furnace and a wood pellet stove.
 
-## |USER| FILE CHANGES
+## ```|USER|``` FILE CHANGES
 
 Here is a complete list of all the files that need to be edited to represent your user name an/or your home folder path for this to work. Most of the changes you will be looking for the key ```|user|``` and replace it with your username.
 
@@ -292,7 +292,6 @@ pellet_disable_script:
         payload: >
           {{ iif(control, 1, 0, 0)}}
 # Automation:
-
 
 - id: '54069466-8ec0-4432-a003-a725ccf4afcd'
   alias: Fire Break
