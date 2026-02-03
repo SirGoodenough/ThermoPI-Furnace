@@ -293,62 +293,101 @@ pellet_disable_script:
           {{ iif(control, 1, 0, 0)}}
 # Automation:
 
-- id: 'd13436ed-3fe3-47bc-964e-64205ca82daf'
-  alias: Pellet Stove Limiter
-  description: Stop feeding pellets when the stove is above 500 F
+
+- id: '54069466-8ec0-4432-a003-a725ccf4afcd'
+  alias: Fire Break
+  description: Shut off the pellets if the timer is going.
   triggers:
-  - trigger: numeric_state
+  - trigger: state
     entity_id:
-    - sensor.furnace_pellet_firebox_temperature
-    for:
-      minutes: 5
-    above: 500
-    id: Hot
-  - trigger: numeric_state
+    - timer.fire15
+    from:
+    - idle
+    to:
+    - active
+    id: Stall
+  - trigger: state
     entity_id:
-    - sensor.furnace_pellet_firebox_temperature
-    for:
-      minutes: 5
-    below: 490
-    id: Cold
-  - trigger: homeassistant
-    event: start
-    id: HA Start
-  - trigger: homeassistant
-    event: shutdown
-    id: HA Stop
+    - timer.fire30
+    from:
+    - idle
+    to:
+    - active
+    id: Stall
+  - trigger: state
+    entity_id:
+    - timer.fire45
+    from:
+    - idle
+    to:
+    - active
+    id: Stall
+  - trigger: state
+    entity_id:
+    - timer.fire60
+    from:
+    - idle
+    to:
+    - active
+    id: Stall
+  - trigger: state
+    entity_id:
+    - timer.fire15
+    from:
+    - active
+    to:
+    - idle
+    id: Run
+  - trigger: state
+    entity_id:
+    - timer.fire30
+    from:
+    - active
+    to:
+    - idle
+    id: Run
+  - trigger: state
+    entity_id:
+    - timer.fire45
+    from:
+    - active
+    to:
+    - idle
+    id: Run
+  - trigger: state
+    entity_id:
+    - timer.fire60
+    from:
+    - active
+    to:
+    - idle
+    id: Run
   conditions: []
   actions:
   - choose:
     - conditions:
       - condition: trigger
         id:
-        - Hot
+        - Stall
       sequence:
-      - alias: It is Hot so stop feeding fuel
-        action: script.turn_on
+      - action: script.pellet_feed_enable
         metadata: {}
-        target:
-          entity_id: script.pellet_feed_enable
-        data: true
+        data:
+          control: true
     - conditions:
       - condition: trigger
         id:
-        - Cold
+        - Run
       sequence:
-      - alias: It is cold so back to normal
-        action: script.turn_on
+      - action: script.pellet_feed_enable
         metadata: {}
-        target:
-          entity_id: script.pellet_feed_enable
-        data: false
+        data:
+          control: false
     default:
-    - alias: Stop interfering if you do not know the state
-      action: script.turn_on
+    - action: script.pellet_feed_enable
       metadata: {}
-      target:
-        entity_id: script.pellet_feed_enable
-      data: false
+      data:
+        control: false
   mode: single
 ```
 
