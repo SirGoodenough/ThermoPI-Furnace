@@ -81,29 +81,39 @@ def tempHumid():
     global temp
     global humidity
     global verbose
+    _l = 0
 
     try:
-            # list[count] is the GPIO number for the DHT sensor
-        _d = DHT.sensor(pi, list[count]).read()
-        _status = _d[2]
-        _tempC = _d[3]
-        _humidityI = _d[4]
-        _wStatus = ("DHT_GOOD:0", "DHT_BAD_CHECKSUM:1", "DHT_BAD_DATA:2", "DHT_TIMEOUT:3")
-        """
-            The returned data (_d) is a tuple of timestamp, GPIO, status,
-            temperature, and humidity.
+        while _l < 5:  # Try up to 5 times to get a valid reading
+            _l += 1
+                # list[count] is the GPIO number for the DHT sensor
+                # Remove the pullup/down resistor to get a clean reading.
+                time.sleep(0.5)  # Short delay to allow the sensor to settle
+            pi.set_pull_up_down(list[count], pigpio.PUD_OFF)
+                # Read the sensor
+            _d = DHT.sensor(pi, list[count]).read()
+                # Results
+            _status = _d[2]
+            _tempC = _d[3]
+            _humidityI = _d[4]
+            _wStatus = ("DHT_GOOD:0", "DHT_BAD_CHECKSUM:1", "DHT_BAD_DATA:2", "DHT_TIMEOUT:3")
+            """
+                The returned data (_d) is a tuple of timestamp, GPIO, status,
+                temperature, and humidity.
 
-            The status will be one of:
-            0 DHT_GOOD (a good reading)
-            1 DHT_BAD_CHECKSUM (received data failed checksum check)
-            2 DHT_BAD_DATA (data received had one or more invalid values)
-            3 DHT_TIMEOUT (no response from sensor)
-        """
-        if _status != 0 or _humidityI is None or _humidityI > 100.0 or _tempC is None or _tempC > 150.0 or _tempC < 4.44:
-            raise ValueError('Status error or Bad Value')
+                The status will be one of:
+                0 DHT_GOOD (a good reading)
+                1 DHT_BAD_CHECKSUM (received data failed checksum check)
+                2 DHT_BAD_DATA (data received had one or more invalid values)
+                3 DHT_TIMEOUT (no response from sensor)
+            """
+            if _status != 0 or _humidityI is None or _humidityI > 100.0 or _tempC is None or _tempC > 150.0 or _tempC < 4.44:
+                raise ValueError('Status error or Bad Value')         # Round to .1
+            else:
+                _l = 10  # Exit the retry loop
 
         temp = round((9.0/5.0 * _tempC + 32.0), 1)  # Conversion to F & round to .1
-        humidity = round(_humidityI, 1)             # Round to .1
+        humidity = round(_humidityI, 1)    
 
         if verbose: # Troubleshooting print
             print("{:.3f} {:2d} {} {:3.1f} F {:3.1f} %".format(_d[0], _d[1], _wStatus[_d[2]], temp, humidity))
@@ -112,6 +122,7 @@ def tempHumid():
         # Errors happen fairly often, DHT's are hard to read, just try again
         print('DHT reading error: ' + str(_e.args[0]))
         print('Status: {0} Bad Reading {1} {2}'.format(_wStatus[_status], _tempC, _humidityI))
+        time.sleep(1.5)  # Short delay before trying again
         pass
     """
     # Skip to the next reading if a valid measurement couldn't be taken.
