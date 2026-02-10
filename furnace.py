@@ -88,8 +88,8 @@ def tempHumid():
             _l += 1
                 # list[count] is the GPIO number for the DHT sensor
                 # Remove the pullup/down resistor to get a clean reading.
-                time.sleep(0.5)  # Short delay to allow the sensor to settle
             pi.set_pull_up_down(list[count], pigpio.PUD_OFF)
+            time.sleep(0.5)  # Short delay to allow the sensor to settle
                 # Read the sensor
             _d = DHT.sensor(pi, list[count]).read()
                 # Results
@@ -108,7 +108,7 @@ def tempHumid():
                 3 DHT_TIMEOUT (no response from sensor)
             """
             if _status != 0 or _humidityI is None or _humidityI > 100.0 or _tempC is None or _tempC > 150.0 or _tempC < 4.44:
-                raise ValueError('Status error or Bad Value')         # Round to .1
+                raise ValueError('Status error or Bad Value ')         # Round to .1
             else:
                 _l = 10  # Exit the retry loop
 
