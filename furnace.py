@@ -53,6 +53,14 @@ except Exception as _e:
 
 # Globals
 
+# Initialize pigpio library
+def pgioInit():
+    pi = pigpio.pi()
+    if not pi.connected:
+        exit(0)
+    pi.set_mode(PIN_CTL1, pigpio.OUTPUT)  # Set to output mode
+    pi.set_pull_up_down(PIN_CTL1, pigpio.PUD_DOWN)  # Set the pull down resistor
+
 # Reading one wire file
 def read_temp_raw(_device_file):
     _f = open(_device_file, 'r')
@@ -76,6 +84,7 @@ def read_temp(_device_file):
 # Subroutine to look up DHT temp/humid sensors
 def tempHumid():
     global pi
+    global pgioInit
     global list
     global count
     global temp
@@ -122,6 +131,8 @@ def tempHumid():
         # Errors happen fairly often, DHT's are hard to read, just try again
         print('DHT reading error: ' + str(_e.args[0]))
         print('Status: {0} Bad Reading {1} {2}'.format(_wStatus[_status], _tempC, _humidityI))
+        pi.stop()
+        pgioInit()  # Re-initialize pigpio to clear any issues with the DHT reading
         time.sleep(1.5)  # Short delay before trying again
         pass
     """
@@ -754,28 +765,21 @@ payload_CTL1config = {
     "frc_upd": False
 }
 
-# set initial temp/humid values
-temp = 0.0
-humidity = 0.0
-
-# set loop counter
-count = 0
-
-# Initialize pigpio library
-pi = pigpio.pi()
-if not pi.connected:
-    exit(0)
-pi.set_mode(PIN_CTL1, pigpio.OUTPUT)  # Set to output mode
-pi.set_pull_up_down(PIN_CTL1, pigpio.PUD_DOWN)  # Set the pull down resistor
-
-disablePelletFeed(10) # Ensure pellet feed is ON at start
-
 # Log Message to start
 print('Logging {0} sensor measurements every {1} seconds.'.format(D_ID, LOOP))
 print('Press Ctrl-C to quit.')
 
-# Connect to MQTT
-mqttConnect()
+# set initial temp/humid values
+temp = 0.0
+humidity = 0.0
+
+count = 0 # set loop counter
+
+pgioInit() # Initialize pigpio library
+
+disablePelletFeed(10) # Ensure pellet feed is ON at start
+
+mqttConnect() # Connect to MQTT and publish the discovery messages for HA, then subscribe to the pellet feed control topic.
 
 # Main loop reading and sending data
 try:
@@ -807,6 +811,7 @@ except KeyboardInterrupt:
     client.publish(LWT, 'Offline', 1, True)
     time.sleep(1)
     client.disconnect()
+    pi.stop()
     sys.exit()
 
 '''
