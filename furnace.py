@@ -55,11 +55,15 @@ except Exception as _e:
 
 # Initialize pigpio library
 def pgioInit():
+    if pi is not None:
+        pi.stop()  # Stop pigpio if it was already running
     pi = pigpio.pi()
     if not pi.connected:
         exit(0)
+    # Set up the GPIO pin for controlling the pellet feed relay
     pi.set_mode(PIN_CTL1, pigpio.OUTPUT)  # Set to output mode
     pi.set_pull_up_down(PIN_CTL1, pigpio.PUD_DOWN)  # Set the pull down resistor
+    disablePelletFeed(10) # Ensure pellet feed is ON at start
 
 # Reading one wire file
 def read_temp_raw(_device_file):
@@ -777,8 +781,6 @@ count = 0 # set loop counter
 
 pgioInit() # Initialize pigpio library
 
-disablePelletFeed(10) # Ensure pellet feed is ON at start
-
 mqttConnect() # Connect to MQTT and publish the discovery messages for HA, then subscribe to the pellet feed control topic.
 
 # Main loop reading and sending data
@@ -811,7 +813,7 @@ except KeyboardInterrupt:
     client.publish(LWT, 'Offline', 1, True)
     time.sleep(1)
     client.disconnect()
-    pi.stop()
+    pi.stop() # Stop pigpio
     sys.exit()
 
 '''
