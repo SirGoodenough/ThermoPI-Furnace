@@ -55,8 +55,10 @@ except Exception as _e:
 
 # Initialize pigpio library
 def pgioInit():
-    if pi is not None:
-        pi.stop()  # Stop pigpio if it was already running
+    global pi
+    global PIN_CTL1
+    global disablePelletFeed
+
     pi = pigpio.pi()
     if not pi.connected:
         exit(0)
