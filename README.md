@@ -190,10 +190,10 @@ Troubleshoot as needed.  'MQTT Update result 0' means that part of the loop went
 Long term use of this software will make too many writes to the SD card, filling it up and wearing out the card. Therefore ```> /dev/null 2>&1``` has been added to the ```thermoPIFurnace.service``` file to reduce writes to the SD card. For Troubleshooting you *MAY* want to turn this off temporarily. Just remove those characters from this file and all will be logged. Be sure to turn this on or off as you desire before running this section, or if you change that file re-run this section.
 
 These 4 lines containing '|user|' in the file ```thermoPIFurnace.service```
-> User=|user|
-> Group=|user|
-> WorkingDirectory=/home/|user|/.ThermoPI/ThermoPI-Furnace
-> ExecStart=/home/|user|/.ThermoPI/ThermoPI-Furnace/startThermoPI.sh
+* User=|user|
+* Group=|user|
+* WorkingDirectory=/home/|user|/.ThermoPI/ThermoPI-Furnace
+* ExecStart=/home/|user|/.ThermoPI/ThermoPI-Furnace/startThermoPI.sh
 need to be edited to match the username & path that will be running the application. Running as Root is *HIGHLY DISCOURAGED*.
 Also all directories leading to the executable file need to have the permissions ```755``` for the systemctl process to find it properly.
 
