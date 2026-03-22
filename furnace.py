@@ -808,9 +808,10 @@ try:
 
 except KeyboardInterrupt:
     print(' Keyboard Interrupt. Closing MQTT.')
+    disablePelletFeed(10)  # Ensure pellet feed is set to normal at interrupt
+    time.sleep(1)
     client.loop_stop()
     client.unsubscribe(state_topic[0])
-    disablePelletFeed(10)  # Ensure pellet feed is set to normal at interrupt
     time.sleep(2)
     client.publish(LWT, 'Offline', 1, True)
     time.sleep(1)
