@@ -248,7 +248,7 @@ def disablePelletFeed(_state):
     if _state == 1:
         pi.write(PIN_CTL1, 1)  # Turn OFF the pellet feed
     elif _state == 10:
-        client.publish(state_topic[0], 0, 1, True) # Ensure HA Toggle matches relay state
+        client.publish(state_topic[0], 0, 1, False) # Ensure HA Toggle matches relay state
         if verbose: # Troubleshooting print
             print('==> HA Pellet feed disable state set to OFF')
     else:
@@ -345,7 +345,7 @@ def mqttConnect():
     client.publish(CONFIG_TC5, json.dumps(payload_TC5config), 1, True)
     client.publish(CONFIG_TC6, json.dumps(payload_TC6config), 1, True)
 
-    client.publish(CONFIG_CTL1, json.dumps(payload_CTL1config), 1, True)
+    client.publish(CONFIG_CTL1, json.dumps(payload_CTL1config), 1, False)
     client.subscribe(state_topic[0], 2) #subscribe to the disable pellet feed topic
 
 # MQTT message callback & Write GPIO to disable/enable pellet feed
