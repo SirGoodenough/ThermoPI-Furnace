@@ -53,6 +53,20 @@ except Exception as _e:
 
 # Globals
 
+# Initialize pigpio library
+def pgioInit():
+    global pi
+    global PIN_CTL1
+    global disablePelletFeed
+
+    pi = pigpio.pi()
+    if not pi.connected:
+        exit(0)
+    # Set up the GPIO pin for controlling the pellet feed relay
+    pi.set_mode(PIN_CTL1, pigpio.OUTPUT)  # Set to output mode
+    pi.set_pull_up_down(PIN_CTL1, pigpio.PUD_DOWN)  # Set the pull down resistor
+    disablePelletFeed(10) # Ensure pellet feed is ON at start
+
 # Reading one wire file
 def read_temp_raw(_device_file):
     _f = open(_device_file, 'r')
@@ -76,6 +90,7 @@ def read_temp(_device_file):
 # Subroutine to look up DHT temp/humid sensors
 def tempHumid():
     global pi
+    global pgioInit
     global list
     global count
     global temp
@@ -122,6 +137,8 @@ def tempHumid():
         # Errors happen fairly often, DHT's are hard to read, just try again
         print('DHT reading error: ' + str(_e.args[0]))
         print('Status: {0} Bad Reading {1} {2}'.format(_wStatus[_status], _tempC, _humidityI))
+        pi.stop()
+        pgioInit()  # Re-initialize pigpio to clear any issues with the DHT reading
         time.sleep(1.5)  # Short delay before trying again
         pass
     """
@@ -231,7 +248,7 @@ def disablePelletFeed(_state):
     if _state == 1:
         pi.write(PIN_CTL1, 1)  # Turn OFF the pellet feed
     elif _state == 10:
-        client.publish(state_topic[0], 0, 1, True) # Ensure HA Toggle matches relay state
+        client.publish(state_topic[0], 0, 1, False) # Ensure HA Toggle matches relay state
         if verbose: # Troubleshooting print
             print('==> HA Pellet feed disable state set to OFF')
     else:
@@ -328,7 +345,7 @@ def mqttConnect():
     client.publish(CONFIG_TC5, json.dumps(payload_TC5config), 1, True)
     client.publish(CONFIG_TC6, json.dumps(payload_TC6config), 1, True)
 
-    client.publish(CONFIG_CTL1, json.dumps(payload_CTL1config), 1, True)
+    client.publish(CONFIG_CTL1, json.dumps(payload_CTL1config), 1, False)
     client.subscribe(state_topic[0], 2) #subscribe to the disable pellet feed topic
 
 # MQTT message callback & Write GPIO to disable/enable pellet feed
@@ -754,28 +771,19 @@ payload_CTL1config = {
     "frc_upd": False
 }
 
-# set initial temp/humid values
-temp = 0.0
-humidity = 0.0
-
-# set loop counter
-count = 0
-
-# Initialize pigpio library
-pi = pigpio.pi()
-if not pi.connected:
-    exit(0)
-pi.set_mode(PIN_CTL1, pigpio.OUTPUT)  # Set to output mode
-pi.set_pull_up_down(PIN_CTL1, pigpio.PUD_DOWN)  # Set the pull down resistor
-
-disablePelletFeed(10) # Ensure pellet feed is ON at start
-
 # Log Message to start
 print('Logging {0} sensor measurements every {1} seconds.'.format(D_ID, LOOP))
 print('Press Ctrl-C to quit.')
 
-# Connect to MQTT
-mqttConnect()
+# set initial temp/humid values
+temp = 0.0
+humidity = 0.0
+
+count = 0 # set loop counter
+
+pgioInit() # Initialize pigpio library
+
+mqttConnect() # Connect to MQTT and publish the discovery messages for HA, then subscribe to the pellet feed control topic.
 
 # Main loop reading and sending data
 try:
@@ -800,13 +808,14 @@ try:
 
 except KeyboardInterrupt:
     print(' Keyboard Interrupt. Closing MQTT.')
-    client.loop_stop()
-    client.unsubscribe(state_topic[0])
     disablePelletFeed(10)  # Ensure pellet feed is set to normal at interrupt
-    time.sleep(2)
+    time.sleep(.5)
     client.publish(LWT, 'Offline', 1, True)
     time.sleep(1)
+    client.unsubscribe(state_topic[0])
+    client.loop_stop()
     client.disconnect()
+    pi.stop() # Stop pigpio
     sys.exit()
 
 '''
